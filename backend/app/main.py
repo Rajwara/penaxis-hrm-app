@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
-from .routers import auth, employees, attendance, leaves
+from .routers import auth, employees, attendance, leaves, reports
 from . import seed
 
 Base.metadata.create_all(bind=engine)
@@ -26,6 +26,7 @@ app.include_router(auth.router)
 app.include_router(employees.router)
 app.include_router(attendance.router)
 app.include_router(leaves.router)
+app.include_router(reports.router)
 
 
 @app.get("/")

@@ -12,6 +12,7 @@ export default function AdminEmployeesPage() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
 
   const [form, setForm] = useState({
@@ -85,13 +86,41 @@ export default function AdminEmployeesPage() {
     await load();
   }
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await api.get("/reports/employees-excel", { responseType: "blob" });
+      const blob = new Blob([res.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      link.download = `penaxis-hr-report-${today}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert("Could not generate the report. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <AppShell title="Employees" subtitle="Add, remove, and manage your team" adminOnly>
       <div className="mb-5 flex items-center justify-between">
         <p className="text-sm text-ink-400">{employees.length} active employee(s)</p>
-        <button onClick={() => setShowForm((s) => !s)} className="btn-primary">
-          {showForm ? "Cancel" : "+ Add employee"}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={handleExport} disabled={exporting} className="btn-secondary">
+            {exporting ? "Preparing…" : "⬇ Export to Excel"}
+          </button>
+          <button onClick={() => setShowForm((s) => !s)} className="btn-primary">
+            {showForm ? "Cancel" : "+ Add employee"}
+          </button>
+        </div>
       </div>
 
       {showForm && (
