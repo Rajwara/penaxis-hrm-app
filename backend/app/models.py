@@ -1,4 +1,5 @@
 import enum
+import json
 import datetime as dt
 
 from sqlalchemy import (
@@ -50,6 +51,34 @@ class User(Base):
     join_date = Column(Date, default=dt.date.today)
     leave_quota = Column(Float, default=12.0)  # remaining leave days
     is_active = Column(Integer, default=1)  # 1 active, 0 removed (soft delete)
+
+    # Extended profile fields
+    linkedin_url = Column(String, default="")
+    years_experience = Column(Float, default=0)
+    birthday = Column(Date, nullable=True)
+    skills_json = Column(Text, default="[]")
+    profile_picture = Column(String, nullable=True)  # stored filename
+    cv_filename = Column(String, nullable=True)  # stored filename on disk
+    cv_original_name = Column(String, nullable=True)  # original uploaded filename
+
+    @property
+    def skills(self) -> list[str]:
+        try:
+            return json.loads(self.skills_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @skills.setter
+    def skills(self, value: list[str]):
+        self.skills_json = json.dumps(value or [])
+
+    @property
+    def profile_picture_url(self) -> str | None:
+        return f"/uploads/{self.profile_picture}" if self.profile_picture else None
+
+    @property
+    def cv_url(self) -> str | None:
+        return f"/uploads/{self.cv_filename}" if self.cv_filename else None
 
     attendances = relationship(
         "Attendance", back_populates="user", cascade="all, delete-orphan"

@@ -11,6 +11,13 @@ export interface UserOut {
   join_date: string;
   leave_quota: number;
   is_active: number;
+  linkedin_url: string;
+  years_experience: number;
+  birthday: string | null;
+  skills: string[];
+  profile_picture_url: string | null;
+  cv_url: string | null;
+  cv_original_name: string | null;
 }
 
 export interface AttendanceOut {

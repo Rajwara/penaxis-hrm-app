@@ -38,6 +38,10 @@ class UserUpdate(BaseModel):
     department: Optional[str] = None
     position: Optional[str] = None
     phone: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    years_experience: Optional[float] = None
+    birthday: Optional[dt.date] = None
+    skills: Optional[list[str]] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
@@ -52,6 +56,13 @@ class UserOut(UserBase):
     join_date: dt.date
     leave_quota: float
     is_active: int
+    linkedin_url: str = ""
+    years_experience: float = 0
+    birthday: Optional[dt.date] = None
+    skills: list[str] = []
+    profile_picture_url: Optional[str] = None
+    cv_url: Optional[str] = None
+    cv_original_name: Optional[str] = None
 
 
 # ---------- Attendance ----------

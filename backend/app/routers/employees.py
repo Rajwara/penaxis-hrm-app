@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
 from ..security import hash_password
 from ..deps import get_current_user, require_admin
+from ..storage import (
+    save_upload,
+    delete_upload,
+    ALLOWED_IMAGE_EXT,
+    ALLOWED_DOC_EXT,
+    MAX_IMAGE_BYTES,
+    MAX_DOC_BYTES,
+)
 
 router = APIRouter(prefix="/employees", tags=["employees"])
 
@@ -106,8 +114,72 @@ def update_employee(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
+
+    updates = payload.model_dump(exclude_unset=True)
+    # Employees editing their own profile cannot change org-controlled fields
+    if current_user.role != models.Role.ADMIN:
+        updates.pop("department", None)
+        updates.pop("position", None)
+
+    for field, value in updates.items():
+        setattr(user, field, value)  # skills uses the model's property setter
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/profile-picture", response_model=schemas.UserOut)
+async def upload_profile_picture(
+    user_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.role != models.Role.ADMIN and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    content = await file.read()
+    if len(content) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=400, detail="Image must be under 5 MB")
+    try:
+        stored_name = save_upload(content, file.filename or "photo", ALLOWED_IMAGE_EXT)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    delete_upload(user.profile_picture)
+    user.profile_picture = stored_name
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/cv", response_model=schemas.UserOut)
+async def upload_cv(
+    user_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.role != models.Role.ADMIN and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    content = await file.read()
+    if len(content) > MAX_DOC_BYTES:
+        raise HTTPException(status_code=400, detail="File must be under 10 MB")
+    try:
+        stored_name = save_upload(content, file.filename or "cv", ALLOWED_DOC_EXT)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    delete_upload(user.cv_filename)
+    user.cv_filename = stored_name
+    user.cv_original_name = file.filename
     db.commit()
     db.refresh(user)
     return user

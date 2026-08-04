@@ -1,14 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine
 from .routers import auth, employees, attendance, leaves, reports
 from . import seed
+from .storage import UPLOAD_DIR
 
 Base.metadata.create_all(bind=engine)
 seed.run()
 
 app = FastAPI(title="HRM API", version="1.0.0")
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

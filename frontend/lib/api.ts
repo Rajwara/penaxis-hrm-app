@@ -31,6 +31,11 @@ api.interceptors.response.use(
   }
 );
 
+export function fileUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return `${API_URL}${path}`;
+}
+
 export function apiErrorMessage(err: unknown, fallback = "Something went wrong"): string {
   const anyErr = err as any;
   const detail = anyErr?.response?.data?.detail;
