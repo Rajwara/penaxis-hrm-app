@@ -1,0 +1,18 @@
+# Python
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/venv/
+backend/.venv/
+*.pyc
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env*.local
+
+# OS / editor
+.DS_Store
+*.log
