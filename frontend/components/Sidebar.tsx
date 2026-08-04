@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -70,11 +71,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 flex-col border-r border-ink-100 bg-white px-4 py-6 md:flex">
-      <div className="mb-8 flex items-center gap-2 px-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink-900 font-display text-sm font-bold text-white">
-          P
-        </div>
-        <span className="font-display text-lg font-bold text-ink-900">Penaxis HR</span>
+      <div className="mb-8 flex items-center px-2">
+        <Image src="/penaxis-logo.png" alt="Penaxis" width={140} height={36} className="h-8 w-auto" priority />
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {links.map((link) => {
@@ -85,8 +83,8 @@ export function Sidebar() {
               href={link.href}
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-ink-900 text-white"
-                  : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+                  ? "bg-brand-500 text-white"
+                  : "text-ink-600 hover:bg-brand-50 hover:text-ink-900"
               }`}
             >
               <Icon name={link.icon} />

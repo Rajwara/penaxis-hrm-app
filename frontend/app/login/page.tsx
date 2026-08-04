@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import { apiErrorMessage } from "@/lib/api";
 
@@ -25,11 +26,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-ink-900 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-ink-800 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 font-display text-xl font-bold text-white">
-            P
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 p-2">
+            <Image src="/penaxis-icon.png" alt="Penaxis" width={40} height={40} className="h-full w-full object-contain" priority />
           </div>
           <h1 className="font-display text-2xl font-bold text-white">Penaxis HR</h1>
           <p className="mt-1 text-sm text-ink-100/70">Sign in to manage attendance and leave</p>
