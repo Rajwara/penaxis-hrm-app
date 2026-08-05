@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 import { api, apiErrorMessage } from "@/lib/api";
 import { AttendanceOut, LeaveOut } from "@/lib/types";
-import { formatTime } from "@/lib/format";
+import { formatTime, formatLiveClock, formatLiveDate } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
 
 function LiveClock() {
@@ -16,7 +16,7 @@ function LiveClock() {
   }, []);
   return (
     <p className="font-mono text-4xl font-semibold text-ink-900 tracking-tight">
-      {now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+      {formatLiveClock(now)}
     </p>
   );
 }
@@ -95,7 +95,7 @@ export default function DashboardPage() {
         {/* Punch clock - signature widget */}
         <div className="card lg:col-span-2 flex flex-col items-center justify-center gap-5 py-10">
           <p className="text-xs font-semibold uppercase tracking-widest text-ink-400">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {formatLiveDate(new Date())}
           </p>
           <LiveClock />
 
