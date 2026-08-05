@@ -11,29 +11,38 @@ from ..deps import get_current_user, require_admin
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
 
+def _find_open_session(db: Session, user_id: int, day: dt.date) -> models.Attendance | None:
+    """A session that's been checked in but not yet checked out."""
+    return (
+        db.query(models.Attendance)
+        .filter(
+            models.Attendance.user_id == user_id,
+            models.Attendance.date == day,
+            models.Attendance.check_out.is_(None),
+        )
+        .order_by(models.Attendance.check_in.desc())
+        .first()
+    )
+
+
 @router.post("/checkin", response_model=schemas.AttendanceOut)
 def check_in(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     today = dt.date.today()
-    record = (
-        db.query(models.Attendance)
-        .filter(
-            models.Attendance.user_id == current_user.id,
-            models.Attendance.date == today,
+    if _find_open_session(db, current_user.id, today):
+        raise HTTPException(
+            status_code=400,
+            detail="You're already checked in. Check out before starting a new session.",
         )
-        .first()
+    session = models.Attendance(
+        user_id=current_user.id, date=today, check_in=dt.datetime.now()
     )
-    if record and record.check_in:
-        raise HTTPException(status_code=400, detail="Already checked in today")
-    if not record:
-        record = models.Attendance(user_id=current_user.id, date=today)
-        db.add(record)
-    record.check_in = dt.datetime.now()
+    db.add(session)
     db.commit()
-    db.refresh(record)
-    return record
+    db.refresh(session)
+    return session
 
 
 @router.post("/checkout", response_model=schemas.AttendanceOut)
@@ -42,39 +51,30 @@ def check_out(
     current_user: models.User = Depends(get_current_user),
 ):
     today = dt.date.today()
-    record = (
-        db.query(models.Attendance)
-        .filter(
-            models.Attendance.user_id == current_user.id,
-            models.Attendance.date == today,
-        )
-        .first()
-    )
-    if not record or not record.check_in:
-        raise HTTPException(status_code=400, detail="You must check in before checking out")
-    if record.check_out:
-        raise HTTPException(status_code=400, detail="Already checked out today")
-    record.check_out = dt.datetime.now()
+    session = _find_open_session(db, current_user.id, today)
+    if not session:
+        raise HTTPException(status_code=400, detail="You need to check in before checking out")
+    session.check_out = dt.datetime.now()
     db.commit()
-    db.refresh(record)
-    return record
+    db.refresh(session)
+    return session
 
 
-@router.get("/today", response_model=schemas.AttendanceOut | None)
+@router.get("/today", response_model=list[schemas.AttendanceOut])
 def today_status(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     today = dt.date.today()
-    record = (
+    return (
         db.query(models.Attendance)
         .filter(
             models.Attendance.user_id == current_user.id,
             models.Attendance.date == today,
         )
-        .first()
+        .order_by(models.Attendance.check_in)
+        .all()
     )
-    return record
 
 
 @router.get("/me", response_model=list[schemas.AttendanceOut])
@@ -89,7 +89,7 @@ def my_attendance(
         q = q.filter(extract("month", models.Attendance.date) == month)
     if year:
         q = q.filter(extract("year", models.Attendance.date) == year)
-    return q.order_by(models.Attendance.date.desc()).all()
+    return q.order_by(models.Attendance.date.desc(), models.Attendance.check_in.desc()).all()
 
 
 @router.get("/user/{user_id}", response_model=list[schemas.AttendanceOut])
@@ -107,4 +107,4 @@ def user_attendance(
         q = q.filter(extract("month", models.Attendance.date) == month)
     if year:
         q = q.filter(extract("year", models.Attendance.date) == year)
-    return q.order_by(models.Attendance.date.desc()).all()
+    return q.order_by(models.Attendance.date.desc(), models.Attendance.check_in.desc()).all()

@@ -21,9 +21,20 @@ function LiveClock() {
   );
 }
 
+function totalHoursToday(sessions: AttendanceOut[]): string {
+  let ms = 0;
+  for (const s of sessions) {
+    if (s.check_in) {
+      const end = s.check_out ? new Date(s.check_out) : new Date();
+      ms += end.getTime() - new Date(s.check_in).getTime();
+    }
+  }
+  return (ms / (1000 * 60 * 60)).toFixed(1);
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [today, setToday] = useState<AttendanceOut | null>(null);
+  const [sessions, setSessions] = useState<AttendanceOut[]>([]);
   const [leaves, setLeaves] = useState<LeaveOut[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,10 +44,10 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const [todayRes, leavesRes] = await Promise.all([
-        api.get<AttendanceOut | null>("/attendance/today"),
+        api.get<AttendanceOut[]>("/attendance/today"),
         api.get<LeaveOut[]>("/leaves/me"),
       ]);
-      setToday(todayRes.data);
+      setSessions(todayRes.data);
       setLeaves(leavesRes.data);
     } finally {
       setLoading(false);
@@ -47,12 +58,15 @@ export default function DashboardPage() {
     load();
   }, []);
 
+  const openSession = sessions.find((s) => s.check_in && !s.check_out);
+  const hasFinishedASession = sessions.some((s) => s.check_out);
+
   async function handleCheckIn() {
     setBusy(true);
     setError("");
     try {
       const res = await api.post<AttendanceOut>("/attendance/checkin");
-      setToday(res.data);
+      setSessions((prev) => [...prev, res.data]);
     } catch (err) {
       setError(apiErrorMessage(err, "Could not check in"));
     } finally {
@@ -65,7 +79,7 @@ export default function DashboardPage() {
     setError("");
     try {
       const res = await api.post<AttendanceOut>("/attendance/checkout");
-      setToday(res.data);
+      setSessions((prev) => prev.map((s) => (s.id === res.data.id ? res.data : s)));
     } catch (err) {
       setError(apiErrorMessage(err, "Could not check out"));
     } finally {
@@ -87,40 +101,42 @@ export default function DashboardPage() {
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          <div className="flex items-center gap-8">
-            <div className="text-center">
-              <p className="label mb-0">Checked in</p>
-              <p className="font-mono text-lg font-semibold text-ink-800">
-                {formatTime(today?.check_in ?? null)}
-              </p>
-            </div>
-            <div className="h-8 w-px bg-ink-100" />
-            <div className="text-center">
-              <p className="label mb-0">Checked out</p>
-              <p className="font-mono text-lg font-semibold text-ink-800">
-                {formatTime(today?.check_out ?? null)}
-              </p>
-            </div>
+          <div className="text-center">
+            <p className="label mb-0">Total time today</p>
+            <p className="font-mono text-2xl font-semibold text-ink-800">
+              {totalHoursToday(sessions)}h
+            </p>
           </div>
 
           {!loading && (
             <>
-              {!today?.check_in && (
+              {!openSession && (
                 <button onClick={handleCheckIn} disabled={busy} className="btn-primary px-8 py-3 text-base">
-                  Check in
+                  {hasFinishedASession ? "Check in (resume)" : "Check in"}
                 </button>
               )}
-              {today?.check_in && !today?.check_out && (
+              {openSession && (
                 <button onClick={handleCheckOut} disabled={busy} className="btn-secondary px-8 py-3 text-base">
-                  Check out
+                  Check out {hasFinishedASession ? "(start break)" : ""}
                 </button>
-              )}
-              {today?.check_in && today?.check_out && (
-                <p className="rounded-full bg-success/10 px-4 py-2 text-sm font-medium text-success">
-                  You're done for today ✓
-                </p>
               )}
             </>
+          )}
+
+          {sessions.length > 0 && (
+            <div className="w-full max-w-sm border-t border-ink-100 pt-4">
+              <p className="label mb-2 text-center">Today's sessions</p>
+              <ul className="space-y-1.5">
+                {sessions.map((s, i) => (
+                  <li key={s.id} className="flex items-center justify-between text-sm text-ink-600">
+                    <span>Session {i + 1}</span>
+                    <span className="font-mono">
+                      {formatTime(s.check_in)} – {s.check_out ? formatTime(s.check_out) : "now"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 
