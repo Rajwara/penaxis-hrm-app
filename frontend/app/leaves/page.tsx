@@ -22,11 +22,15 @@ export default function LeavesPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [leaveType, setLeaveType] = useState<LeaveType>("annual");
+  const [leaveType, setLeaveType] = useState<LeaveType>("sick");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user?.is_eligible_for_annual_leave) setLeaveType("annual");
+  }, [user]);
 
   async function load() {
     setLoading(true);
@@ -58,7 +62,7 @@ export default function LeavesPage() {
       setStartDate("");
       setEndDate("");
       setReason("");
-      setLeaveType("annual");
+      setLeaveType(user?.is_eligible_for_annual_leave ? "annual" : "sick");
       await Promise.all([load(), refreshUser()]);
     } catch (err) {
       setError(apiErrorMessage(err, "Could not submit leave request"));
@@ -72,8 +76,16 @@ export default function LeavesPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <form onSubmit={handleSubmit} className="card space-y-4 lg:col-span-1">
           <div>
-            <p className="label mb-0">Leave balance</p>
-            <p className="font-display text-2xl font-bold text-ink-900">{user?.leave_quota} days</p>
+            <p className="label mb-0">Annual leave balance</p>
+            <p className="font-display text-2xl font-bold text-ink-900">
+              {user?.annual_leave_balance ?? 0} days
+            </p>
+            {user && !user.is_eligible_for_annual_leave && (
+              <p className="mt-1 text-xs text-ink-400">
+                Accruing at 1.5 days/month — usable once you complete 1 year with the company.
+                Sick and casual leave are available now.
+              </p>
+            )}
           </div>
 
           {error && <div className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">{error}</div>}
@@ -89,8 +101,14 @@ export default function LeavesPage() {
               className="input"
             >
               {LEAVE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+                <option
+                  key={t.value}
+                  value={t.value}
+                  disabled={t.value === "annual" && !user?.is_eligible_for_annual_leave}
+                >
+                  {t.value === "annual" && !user?.is_eligible_for_annual_leave
+                    ? `${t.label} (after 1 year)`
+                    : t.label}
                 </option>
               ))}
             </select>

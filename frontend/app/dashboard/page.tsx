@@ -145,7 +145,7 @@ export default function DashboardPage() {
           <div className="card">
             <p className="label">Leave balance</p>
             <p className="font-display text-3xl font-bold text-ink-900">
-              {user?.leave_quota} <span className="text-base font-medium text-ink-400">days left</span>
+              {user?.annual_leave_balance} <span className="text-base font-medium text-ink-400">days left</span>
             </p>
             <a href="/leaves" className="mt-3 inline-block text-sm font-medium text-teal-600 hover:text-teal-500">
               Apply for leave →

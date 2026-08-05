@@ -31,11 +31,22 @@ def apply_leave(
     if payload.end_date < payload.start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
     days = _business_days(payload.start_date, payload.end_date)
-    if payload.leave_type != models.LeaveType.UNPAID and days > current_user.leave_quota:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient leave quota. You have {current_user.leave_quota} day(s) left.",
-        )
+
+    if payload.leave_type == models.LeaveType.ANNUAL:
+        if not current_user.is_eligible_for_annual_leave:
+            raise HTTPException(
+                status_code=400,
+                detail="Annual leave is available once you've completed one year with the company. "
+                "Sick, casual, or other short leave is still available in the meantime.",
+            )
+        balance = current_user.annual_leave_balance
+        if days > balance:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient annual leave balance. You have {balance} day(s) accrued so far this year.",
+            )
+    # Sick / casual / other / unpaid ("short leave") are not capped by the annual pool.
+
     leave = models.LeaveRequest(
         user_id=current_user.id,
         start_date=payload.start_date,
@@ -126,17 +137,15 @@ def update_leave_status(
     if leave.status != models.LeaveStatus.PENDING:
         raise HTTPException(status_code=400, detail="This request has already been decided")
 
-    if payload.status == models.LeaveStatus.APPROVED:
-        if (
-            leave.leave_type != models.LeaveType.UNPAID
-            and leave.days > employee.leave_quota
-        ):
+    if payload.status == models.LeaveStatus.APPROVED and leave.leave_type == models.LeaveType.ANNUAL:
+        # Re-check at approval time: balance is derived live from approved history,
+        # so this re-validates in case other requests were approved in between.
+        # (This leave is still pending, so it isn't counted in its own balance yet.)
+        if leave.days > employee.annual_leave_balance:
             raise HTTPException(
                 status_code=400,
-                detail="Employee no longer has sufficient leave quota",
+                detail="Employee no longer has sufficient annual leave balance",
             )
-        if leave.leave_type != models.LeaveType.UNPAID:
-            employee.leave_quota -= leave.days
 
     leave.status = payload.status
     leave.decided_at = dt.datetime.utcnow()

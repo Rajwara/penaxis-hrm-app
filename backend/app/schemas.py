@@ -30,7 +30,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     role: Role = Role.EMPLOYEE
-    leave_quota: float = 12.0
+    leave_quota: float = 0.0
     manager_id: Optional[int] = None
 
 
@@ -68,6 +68,9 @@ class UserOut(UserBase):
     manager_id: Optional[int] = None
     manager_name: Optional[str] = None
     is_manager: bool = False
+    is_eligible_for_annual_leave: bool = False
+    annual_leave_accrued: float = 0
+    annual_leave_balance: float = 0
 
 
 # ---------- Attendance ----------

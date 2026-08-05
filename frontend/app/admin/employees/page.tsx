@@ -26,7 +26,7 @@ export default function AdminEmployeesPage() {
     department: "",
     position: "",
     phone: "",
-    leave_quota: "12",
+    leave_quota: "0",
     role: "employee" as "employee" | "admin",
     manager_id: "",
   });
@@ -63,7 +63,7 @@ export default function AdminEmployeesPage() {
         department: "",
         position: "",
         phone: "",
-        leave_quota: "12",
+        leave_quota: "0",
         role: "employee",
         manager_id: "",
       });
@@ -265,7 +265,7 @@ export default function AdminEmployeesPage() {
               />
             </div>
             <div>
-              <label className="label">Leave quota (days)</label>
+              <label className="label">Leave adjustment (bonus days, optional)</label>
               <input
                 type="number"
                 min="0"
@@ -310,7 +310,8 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Department</th>
                   <th className="pb-3 pr-4">Manager</th>
                   <th className="pb-3 pr-4">Joined</th>
-                  <th className="pb-3 pr-4">Leave quota</th>
+                  <th className="pb-3 pr-4">Annual balance</th>
+                  <th className="pb-3 pr-4">Adjustment</th>
                   <th className="pb-3"></th>
                 </tr>
               </thead>
@@ -347,6 +348,12 @@ export default function AdminEmployeesPage() {
                       </select>
                     </td>
                     <td className="py-3 pr-4 text-ink-600">{formatDate(emp.join_date)}</td>
+                    <td className="py-3 pr-4">
+                      <p className="font-medium text-ink-800">{emp.annual_leave_balance}</p>
+                      {!emp.is_eligible_for_annual_leave && (
+                        <p className="text-[10px] text-ink-400">not yet eligible</p>
+                      )}
+                    </td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
                         <input

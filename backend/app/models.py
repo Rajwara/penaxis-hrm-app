@@ -13,9 +13,14 @@ from sqlalchemy import (
     Enum,
     Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 
 from .database import Base
+
+# Company leave policy: 18 annual leave days per calendar year, accrued monthly.
+ANNUAL_LEAVE_PER_YEAR = 18.0
+MONTHLY_ACCRUAL = ANNUAL_LEAVE_PER_YEAR / 12  # 1.5 days/month
+ANNUAL_LEAVE_ELIGIBILITY_DAYS = 365  # must have completed 1 year to use annual leave
 
 
 class Role(str, enum.Enum):
@@ -49,7 +54,7 @@ class User(Base):
     position = Column(String, default="Staff")
     phone = Column(String, default="")
     join_date = Column(Date, default=dt.date.today)
-    leave_quota = Column(Float, default=12.0)  # remaining leave days
+    leave_quota = Column(Float, default=0.0)  # manual adjustment on top of accrued annual leave
     is_active = Column(Integer, default=1)  # 1 active, 0 removed (soft delete)
 
     # Extended profile fields
@@ -90,6 +95,59 @@ class User(Base):
     @property
     def cv_url(self) -> str | None:
         return f"/uploads/{self.cv_filename}" if self.cv_filename else None
+
+    @property
+    def is_eligible_for_annual_leave(self) -> bool:
+        """Annual leave can only be used after completing one year with the company."""
+        if not self.join_date:
+            return False
+        return (dt.date.today() - self.join_date).days >= ANNUAL_LEAVE_ELIGIBILITY_DAYS
+
+    @property
+    def annual_leave_accrued(self) -> float:
+        """
+        18 days/year, accrued at 1.5/month starting the month they joined
+        (or January 1st, for anyone who joined in a prior year).
+        """
+        if not self.join_date:
+            return 0.0
+        today = dt.date.today()
+        year_start = dt.date(today.year, 1, 1)
+        effective_start = max(self.join_date, year_start)
+        if effective_start > today:
+            return 0.0
+        months_elapsed = (
+            (today.year - effective_start.year) * 12
+            + (today.month - effective_start.month)
+            + 1
+        )
+        months_elapsed = max(0, months_elapsed)
+        return round(min(ANNUAL_LEAVE_PER_YEAR, months_elapsed * MONTHLY_ACCRUAL), 2)
+
+    @property
+    def annual_leave_used_this_year(self) -> float:
+        session = object_session(self)
+        if session is None:
+            return 0.0
+        today = dt.date.today()
+        rows = (
+            session.query(LeaveRequest)
+            .filter(
+                LeaveRequest.user_id == self.id,
+                LeaveRequest.leave_type == LeaveType.ANNUAL,
+                LeaveRequest.status == LeaveStatus.APPROVED,
+            )
+            .all()
+        )
+        return sum(r.days for r in rows if r.start_date.year == today.year)
+
+    @property
+    def annual_leave_balance(self) -> float:
+        """Accrued this year + any manual adjustment, minus approved annual leave already taken."""
+        return round(
+            self.annual_leave_accrued + (self.leave_quota or 0) - self.annual_leave_used_this_year,
+            2,
+        )
 
     attendances = relationship(
         "Attendance", back_populates="user", cascade="all, delete-orphan"

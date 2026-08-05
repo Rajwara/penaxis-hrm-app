@@ -1,3 +1,5 @@
+import datetime as dt
+
 from .database import SessionLocal
 from . import models
 from .security import hash_password
@@ -9,6 +11,7 @@ def run():
         existing = db.query(models.User).first()
         if existing:
             return
+        today = dt.date.today()
         admin = models.User(
             name="Alex Morgan",
             email="admin@company.com",
@@ -16,7 +19,8 @@ def run():
             role=models.Role.ADMIN,
             department="Human Resources",
             position="HR Manager",
-            leave_quota=18,
+            join_date=today - dt.timedelta(days=800),  # well past 1 year: annual leave eligible
+            leave_quota=0,
         )
         demo_employee = models.User(
             name="Jamie Chen",
@@ -25,7 +29,8 @@ def run():
             role=models.Role.EMPLOYEE,
             department="Engineering",
             position="Software Engineer",
-            leave_quota=12,
+            join_date=today - dt.timedelta(days=60),  # under 1 year: not yet annual-leave eligible
+            leave_quota=0,
         )
         db.add_all([admin, demo_employee])
         db.commit()
