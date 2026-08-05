@@ -13,6 +13,9 @@ export default function AdminEmployeesPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
   const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
 
   const [form, setForm] = useState({
@@ -99,19 +102,26 @@ export default function AdminEmployeesPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      const res = await api.get("/reports/employees-excel", { responseType: "blob" });
+      const params: Record<string, string> = {};
+      if (exportFrom) params.start_date = exportFrom;
+      if (exportTo) params.end_date = exportTo;
+      const res = await api.get("/reports/employees-excel", {
+        params,
+        responseType: "blob",
+      });
       const blob = new Blob([res.data], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const today = new Date().toISOString().slice(0, 10);
-      link.download = `penaxis-hr-report-${today}.xlsx`;
+      const suffix = exportFrom && exportTo ? `${exportFrom}_to_${exportTo}` : new Date().toISOString().slice(0, 10);
+      link.download = `penaxis-hr-report-${suffix}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      setShowExportPanel(false);
     } catch {
       alert("Could not generate the report. Please try again.");
     } finally {
@@ -124,14 +134,45 @@ export default function AdminEmployeesPage() {
       <div className="mb-5 flex items-center justify-between">
         <p className="text-sm text-ink-400">{employees.length} active employee(s)</p>
         <div className="flex gap-2">
-          <button onClick={handleExport} disabled={exporting} className="btn-secondary">
-            {exporting ? "Preparing…" : "⬇ Export to Excel"}
+          <button onClick={() => setShowExportPanel((s) => !s)} className="btn-secondary">
+            ⬇ Export to Excel
           </button>
           <button onClick={() => setShowForm((s) => !s)} className="btn-primary">
             {showForm ? "Cancel" : "+ Add employee"}
           </button>
         </div>
       </div>
+
+      {showExportPanel && (
+        <div className="card mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label">From (optional)</label>
+            <input
+              type="date"
+              className="input"
+              value={exportFrom}
+              max={exportTo || undefined}
+              onChange={(e) => setExportFrom(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">To (optional)</label>
+            <input
+              type="date"
+              className="input"
+              value={exportTo}
+              min={exportFrom || undefined}
+              onChange={(e) => setExportTo(e.target.value)}
+            />
+          </div>
+          <button onClick={handleExport} disabled={exporting} className="btn-primary">
+            {exporting ? "Preparing…" : "Download report"}
+          </button>
+          <p className="w-full text-xs text-ink-400">
+            Leave both blank to export full history. The date range applies to attendance and leave records — the employee roster is always complete.
+          </p>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="card mb-6 space-y-4">
