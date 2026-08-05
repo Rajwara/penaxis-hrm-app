@@ -52,6 +52,7 @@ def create_employee(
         leave_quota=payload.leave_quota,
         manager_id=payload.manager_id,
         employment_type=payload.employment_type,
+        is_team_manager=payload.is_team_manager,
     )
     db.add(user)
     db.commit()
@@ -126,6 +127,7 @@ def update_employee(
         updates.pop("position", None)
         updates.pop("manager_id", None)
         updates.pop("employment_type", None)
+        updates.pop("is_team_manager", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:
         raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
 

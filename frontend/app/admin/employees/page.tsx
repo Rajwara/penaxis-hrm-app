@@ -31,6 +31,7 @@ export default function AdminEmployeesPage() {
     role: "employee" as "employee" | "admin",
     manager_id: "",
     employment_type: "permanent" as EmploymentType,
+    is_team_manager: false,
   });
 
   async function load() {
@@ -69,6 +70,7 @@ export default function AdminEmployeesPage() {
         role: "employee",
         manager_id: "",
         employment_type: "permanent",
+        is_team_manager: false,
       });
       await load();
     } catch (err) {
@@ -100,6 +102,11 @@ export default function AdminEmployeesPage() {
     await api.patch(`/employees/${id}`, {
       manager_id: managerId ? Number(managerId) : null,
     });
+    await load();
+  }
+
+  async function handleManagerFlagToggle(id: number, value: boolean) {
+    await api.patch(`/employees/${id}`, { is_team_manager: value });
     await load();
   }
 
@@ -305,6 +312,21 @@ export default function AdminEmployeesPage() {
                 ))}
               </select>
             </div>
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                type="checkbox"
+                id="is_team_manager"
+                className="h-4 w-4 rounded border-ink-100"
+                checked={form.is_team_manager}
+                onChange={(e) => setForm({ ...form, is_team_manager: e.target.checked })}
+              />
+              <label htmlFor="is_team_manager" className="text-sm text-ink-700">
+                Also give this person manager access
+                <span className="block text-xs text-ink-400">
+                  e.g. a Senior Developer who also approves leave for their team
+                </span>
+              </label>
+            </div>
           </div>
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? "Adding…" : "Add employee"}
@@ -345,6 +367,15 @@ export default function AdminEmployeesPage() {
                         )}
                       </p>
                       <p className="text-xs text-ink-400">{emp.email}</p>
+                      <label className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-500">
+                        <input
+                          type="checkbox"
+                          className="h-3 w-3 rounded border-ink-100"
+                          checked={emp.is_team_manager}
+                          onChange={(e) => handleManagerFlagToggle(emp.id, e.target.checked)}
+                        />
+                        Manager access
+                      </label>
                     </td>
                     <td className="py-3 pr-4">
                       <p className="capitalize text-ink-600">{emp.employment_type}</p>

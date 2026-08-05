@@ -23,6 +23,7 @@ export interface UserOut {
   manager_id: number | null;
   manager_name: string | null;
   is_manager: boolean;
+  is_team_manager: boolean;
   is_eligible_for_annual_leave: boolean;
   annual_leave_accrued: number;
   annual_leave_carried_forward: number;

@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Enum,
     Text,
+    Boolean,
 )
 from sqlalchemy.orm import relationship, object_session
 
@@ -87,6 +88,7 @@ class User(Base):
 
     manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     manager = relationship("User", remote_side=[id], backref="reports")
+    is_team_manager = Column(Boolean, default=False, nullable=False)  # explicit HR-granted manager status
 
     @property
     def manager_name(self) -> str | None:
@@ -94,7 +96,7 @@ class User(Base):
 
     @property
     def is_manager(self) -> bool:
-        return len(self.reports) > 0
+        return bool(self.is_team_manager) or len(self.reports) > 0
 
     @property
     def skills(self) -> list[str]:

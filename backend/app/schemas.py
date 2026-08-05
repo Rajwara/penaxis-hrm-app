@@ -33,6 +33,7 @@ class UserCreate(UserBase):
     leave_quota: float = 0.0
     manager_id: Optional[int] = None
     employment_type: EmploymentType = EmploymentType.PERMANENT
+    is_team_manager: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -46,6 +47,7 @@ class UserUpdate(BaseModel):
     skills: Optional[list[str]] = None
     manager_id: Optional[int] = None
     employment_type: Optional[EmploymentType] = None
+    is_team_manager: Optional[bool] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
@@ -74,6 +76,7 @@ class UserOut(UserBase):
     manager_id: Optional[int] = None
     manager_name: Optional[str] = None
     is_manager: bool = False
+    is_team_manager: bool = False
     is_eligible_for_annual_leave: bool = False
     annual_leave_accrued: float = 0
     annual_leave_carried_forward: float = 0
