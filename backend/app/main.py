@@ -6,7 +6,9 @@ from .database import Base, engine
 from .routers import auth, employees, attendance, leaves, reports
 from . import seed
 from .storage import UPLOAD_DIR
+from .migrations import run_lightweight_migrations
 
+run_lightweight_migrations(engine, Base)
 Base.metadata.create_all(bind=engine)
 seed.run()
 
