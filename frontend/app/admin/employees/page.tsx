@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { api, apiErrorMessage } from "@/lib/api";
-import { UserOut } from "@/lib/types";
+import { UserOut, EmploymentType } from "@/lib/types";
 import { formatDate, todayInKarachi } from "@/lib/format";
 
 export default function AdminEmployeesPage() {
@@ -29,6 +30,7 @@ export default function AdminEmployeesPage() {
     leave_quota: "0",
     role: "employee" as "employee" | "admin",
     manager_id: "",
+    employment_type: "permanent" as EmploymentType,
   });
 
   async function load() {
@@ -66,6 +68,7 @@ export default function AdminEmployeesPage() {
         leave_quota: "0",
         role: "employee",
         manager_id: "",
+        employment_type: "permanent",
       });
       await load();
     } catch (err) {
@@ -276,6 +279,18 @@ export default function AdminEmployeesPage() {
               />
             </div>
             <div>
+              <label className="label">Employment type</label>
+              <select
+                className="input"
+                value={form.employment_type}
+                onChange={(e) => setForm({ ...form, employment_type: e.target.value as EmploymentType })}
+              >
+                <option value="permanent">Permanent</option>
+                <option value="contract">Contract</option>
+                <option value="intern">Intern (3-month period)</option>
+              </select>
+            </div>
+            <div>
               <label className="label">Reports to (manager)</label>
               <select
                 className="input"
@@ -307,6 +322,7 @@ export default function AdminEmployeesPage() {
                 <tr className="border-b border-ink-100 text-left text-xs uppercase tracking-wide text-ink-400">
                   <th className="pb-3 pr-4">Name</th>
                   <th className="pb-3 pr-4">Role</th>
+                  <th className="pb-3 pr-4">Type</th>
                   <th className="pb-3 pr-4">Department</th>
                   <th className="pb-3 pr-4">Manager</th>
                   <th className="pb-3 pr-4">Joined</th>
@@ -319,15 +335,36 @@ export default function AdminEmployeesPage() {
                 {employees.map((emp) => (
                   <tr key={emp.id} className="border-b border-ink-50 last:border-0">
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-ink-800">
+                      <p className="flex items-center gap-1.5 font-medium text-ink-800">
                         {emp.name}
+                        {emp.employment_type === "permanent" && <VerifiedBadge />}
                         {emp.is_manager && (
-                          <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-600">
+                          <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-600">
                             Manager
                           </span>
                         )}
                       </p>
                       <p className="text-xs text-ink-400">{emp.email}</p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <p className="capitalize text-ink-600">{emp.employment_type}</p>
+                      {emp.employment_type === "intern" && emp.internship_end_date && (
+                        <p className="text-[10px] text-ink-400">
+                          {emp.is_internship_completed
+                            ? emp.needs_internship_feedback
+                              ? "Completed — awaiting feedback"
+                              : "Completed"
+                            : `Ends ${formatDate(emp.internship_end_date)}`}
+                        </p>
+                      )}
+                      {emp.employment_type === "intern" && emp.intern_feedback && (
+                        <button
+                          onClick={() => alert(emp.intern_feedback || "")}
+                          className="text-[10px] font-semibold text-brand-600 hover:underline"
+                        >
+                          View feedback
+                        </button>
+                      )}
                     </td>
                     <td className="py-3 pr-4 capitalize text-ink-600">{emp.role}</td>
                     <td className="py-3 pr-4 text-ink-600">{emp.department}</td>

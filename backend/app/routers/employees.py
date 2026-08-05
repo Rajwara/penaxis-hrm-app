@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 
@@ -49,6 +51,7 @@ def create_employee(
         phone=payload.phone,
         leave_quota=payload.leave_quota,
         manager_id=payload.manager_id,
+        employment_type=payload.employment_type,
     )
     db.add(user)
     db.commit()
@@ -122,11 +125,41 @@ def update_employee(
         updates.pop("department", None)
         updates.pop("position", None)
         updates.pop("manager_id", None)
+        updates.pop("employment_type", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:
         raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
 
     for field, value in updates.items():
         setattr(user, field, value)  # skills uses the model's property setter
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/internship-feedback", response_model=schemas.UserOut)
+def submit_internship_feedback(
+    user_id: int,
+    payload: schemas.InternshipFeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403, detail="You can only submit your own internship feedback"
+        )
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if user.employment_type != models.EmploymentType.INTERN:
+        raise HTTPException(
+            status_code=400, detail="This form only applies to internship accounts"
+        )
+    if not user.is_internship_completed:
+        raise HTTPException(
+            status_code=400, detail="Your internship period hasn't ended yet"
+        )
+    user.intern_feedback = payload.feedback
+    user.intern_feedback_submitted_at = dt.datetime.utcnow()
     db.commit()
     db.refresh(user)
     return user

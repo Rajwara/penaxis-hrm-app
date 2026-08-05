@@ -1,5 +1,6 @@
 import enum
 import json
+import calendar
 import datetime as dt
 
 from sqlalchemy import (
@@ -21,11 +22,26 @@ from .database import Base
 ANNUAL_LEAVE_PER_YEAR = 18.0
 MONTHLY_ACCRUAL = ANNUAL_LEAVE_PER_YEAR / 12  # 1.5 days/month
 ANNUAL_LEAVE_ELIGIBILITY_DAYS = 365  # must have completed 1 year to use annual leave
+INTERNSHIP_MONTHS = 3
+
+
+def _add_months(d: dt.date, months: int) -> dt.date:
+    total_month = d.month - 1 + months
+    year = d.year + total_month // 12
+    month = total_month % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return dt.date(year, month, day)
 
 
 class Role(str, enum.Enum):
     ADMIN = "admin"
     EMPLOYEE = "employee"
+
+
+class EmploymentType(str, enum.Enum):
+    PERMANENT = "permanent"
+    CONTRACT = "contract"
+    INTERN = "intern"
 
 
 class LeaveStatus(str, enum.Enum):
@@ -56,6 +72,9 @@ class User(Base):
     join_date = Column(Date, default=dt.date.today)
     leave_quota = Column(Float, default=0.0)  # manual adjustment on top of accrued annual leave
     is_active = Column(Integer, default=1)  # 1 active, 0 removed (soft delete)
+    employment_type = Column(Enum(EmploymentType), default=EmploymentType.PERMANENT, nullable=False)
+    intern_feedback = Column(Text, nullable=True)
+    intern_feedback_submitted_at = Column(DateTime, nullable=True)
 
     # Extended profile fields
     linkedin_url = Column(String, default="")
@@ -95,6 +114,21 @@ class User(Base):
     @property
     def cv_url(self) -> str | None:
         return f"/uploads/{self.cv_filename}" if self.cv_filename else None
+
+    @property
+    def internship_end_date(self) -> dt.date | None:
+        if self.employment_type != EmploymentType.INTERN or not self.join_date:
+            return None
+        return _add_months(self.join_date, INTERNSHIP_MONTHS)
+
+    @property
+    def is_internship_completed(self) -> bool:
+        end = self.internship_end_date
+        return end is not None and dt.date.today() >= end
+
+    @property
+    def needs_internship_feedback(self) -> bool:
+        return self.is_internship_completed and not self.intern_feedback
 
     @property
     def is_eligible_for_annual_leave(self) -> bool:

@@ -1,5 +1,7 @@
 export type Role = "admin" | "employee";
 
+export type EmploymentType = "permanent" | "contract" | "intern";
+
 export interface UserOut {
   id: number;
   name: string;
@@ -24,6 +26,12 @@ export interface UserOut {
   is_eligible_for_annual_leave: boolean;
   annual_leave_accrued: number;
   annual_leave_balance: number;
+  employment_type: EmploymentType;
+  internship_end_date: string | null;
+  is_internship_completed: boolean;
+  needs_internship_feedback: boolean;
+  intern_feedback: string | null;
+  intern_feedback_submitted_at: string | null;
 }
 
 export interface AttendanceOut {

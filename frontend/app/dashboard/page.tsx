@@ -7,6 +7,7 @@ import { api, apiErrorMessage } from "@/lib/api";
 import { AttendanceOut, LeaveOut } from "@/lib/types";
 import { formatTime, formatLiveClock, formatLiveDate } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
+import { InternshipCompletionBanner } from "@/components/InternshipCompletionBanner";
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -91,6 +92,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell title={`Welcome back, ${user?.name?.split(" ")[0]}`} subtitle="Here's your day at a glance">
+      <InternshipCompletionBanner />
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Punch clock - signature widget */}
         <div className="card lg:col-span-2 flex flex-col items-center justify-center gap-5 py-10">

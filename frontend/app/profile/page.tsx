@@ -7,6 +7,7 @@ import { api, apiErrorMessage, fileUrl } from "@/lib/api";
 import { AttendanceOut, LeaveOut } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
@@ -151,7 +152,10 @@ export default function ProfilePage() {
               className="hidden"
               onChange={handlePictureChange}
             />
-            <p className="font-display text-lg font-bold text-ink-900">{user?.name}</p>
+            <p className="flex items-center gap-1.5 font-display text-lg font-bold text-ink-900">
+              {user?.name}
+              {user?.employment_type === "permanent" && <VerifiedBadge />}
+            </p>
             <p className="text-sm text-ink-400">{user?.position}</p>
             <span className="mt-2 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium capitalize text-ink-600">
               {user?.role === "admin" ? "HR / Admin" : "Employee"}

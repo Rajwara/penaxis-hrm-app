@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, ConfigDict
 
-from .models import Role, LeaveStatus, LeaveType
+from .models import Role, LeaveStatus, LeaveType, EmploymentType
 
 
 # ---------- Auth ----------
@@ -32,6 +32,7 @@ class UserCreate(UserBase):
     role: Role = Role.EMPLOYEE
     leave_quota: float = 0.0
     manager_id: Optional[int] = None
+    employment_type: EmploymentType = EmploymentType.PERMANENT
 
 
 class UserUpdate(BaseModel):
@@ -44,10 +45,15 @@ class UserUpdate(BaseModel):
     birthday: Optional[dt.date] = None
     skills: Optional[list[str]] = None
     manager_id: Optional[int] = None
+    employment_type: Optional[EmploymentType] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
     leave_quota: float
+
+
+class InternshipFeedbackCreate(BaseModel):
+    feedback: str
 
 
 class UserOut(UserBase):
@@ -71,6 +77,12 @@ class UserOut(UserBase):
     is_eligible_for_annual_leave: bool = False
     annual_leave_accrued: float = 0
     annual_leave_balance: float = 0
+    employment_type: EmploymentType = EmploymentType.PERMANENT
+    internship_end_date: Optional[dt.date] = None
+    is_internship_completed: bool = False
+    needs_internship_feedback: bool = False
+    intern_feedback: Optional[str] = None
+    intern_feedback_submitted_at: Optional[dt.datetime] = None
 
 
 # ---------- Attendance ----------
