@@ -137,33 +137,28 @@ class User(Base):
             return False
         return (dt.date.today() - self.join_date).days >= ANNUAL_LEAVE_ELIGIBILITY_DAYS
 
-    @property
-    def annual_leave_accrued(self) -> float:
-        """
-        18 days/year, accrued at 1.5/month starting the month they joined
-        (or January 1st, for anyone who joined in a prior year).
-        """
+    def _accrued_for_year(self, year: int, as_of: dt.date | None = None) -> float:
+        """Accrual for a single calendar year, as of a given date (defaults to Dec 31 of that year)."""
         if not self.join_date:
             return 0.0
-        today = dt.date.today()
-        year_start = dt.date(today.year, 1, 1)
+        if as_of is None:
+            as_of = dt.date(year, 12, 31)
+        year_start = dt.date(year, 1, 1)
         effective_start = max(self.join_date, year_start)
-        if effective_start > today:
+        if effective_start > as_of:
             return 0.0
         months_elapsed = (
-            (today.year - effective_start.year) * 12
-            + (today.month - effective_start.month)
+            (as_of.year - effective_start.year) * 12
+            + (as_of.month - effective_start.month)
             + 1
         )
         months_elapsed = max(0, months_elapsed)
         return round(min(ANNUAL_LEAVE_PER_YEAR, months_elapsed * MONTHLY_ACCRUAL), 2)
 
-    @property
-    def annual_leave_used_this_year(self) -> float:
+    def _used_for_year(self, year: int) -> float:
         session = object_session(self)
         if session is None:
             return 0.0
-        today = dt.date.today()
         rows = (
             session.query(LeaveRequest)
             .filter(
@@ -173,13 +168,42 @@ class User(Base):
             )
             .all()
         )
-        return sum(r.days for r in rows if r.start_date.year == today.year)
+        return sum(r.days for r in rows if r.start_date.year == year)
+
+    @property
+    def annual_leave_accrued(self) -> float:
+        """
+        This calendar year's accrual only (not including carry-forward from prior years),
+        at 1.5/month starting the month they joined (or January 1st, for anyone who
+        joined in a prior year).
+        """
+        today = dt.date.today()
+        return self._accrued_for_year(today.year, as_of=today)
+
+    @property
+    def annual_leave_used_this_year(self) -> float:
+        return self._used_for_year(dt.date.today().year)
+
+    @property
+    def annual_leave_carried_forward(self) -> float:
+        """Unused balance rolled forward from every prior year since they joined."""
+        if not self.join_date:
+            return 0.0
+        today = dt.date.today()
+        carry = 0.0
+        for year in range(self.join_date.year, today.year):
+            remainder = self._accrued_for_year(year) - self._used_for_year(year)
+            carry += max(0.0, remainder)
+        return round(carry, 2)
 
     @property
     def annual_leave_balance(self) -> float:
-        """Accrued this year + any manual adjustment, minus approved annual leave already taken."""
+        """Carried-forward balance + this year's accrual + adjustment, minus leave used this year."""
         return round(
-            self.annual_leave_accrued + (self.leave_quota or 0) - self.annual_leave_used_this_year,
+            self.annual_leave_carried_forward
+            + self.annual_leave_accrued
+            + (self.leave_quota or 0)
+            - self.annual_leave_used_this_year,
             2,
         )
 

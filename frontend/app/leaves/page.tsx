@@ -80,6 +80,11 @@ export default function LeavesPage() {
             <p className="font-display text-2xl font-bold text-ink-900">
               {user?.annual_leave_balance ?? 0} days
             </p>
+            {user && (user.annual_leave_carried_forward ?? 0) > 0 && (
+              <p className="mt-1 text-xs text-ink-400">
+                Includes {user.annual_leave_carried_forward} carried over from last year
+              </p>
+            )}
             {user && !user.is_eligible_for_annual_leave && (
               <p className="mt-1 text-xs text-ink-400">
                 Accruing at 1.5 days/month — usable once you complete 1 year with the company.

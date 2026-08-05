@@ -76,6 +76,7 @@ class UserOut(UserBase):
     is_manager: bool = False
     is_eligible_for_annual_leave: bool = False
     annual_leave_accrued: float = 0
+    annual_leave_carried_forward: float = 0
     annual_leave_balance: float = 0
     employment_type: EmploymentType = EmploymentType.PERMANENT
     internship_end_date: Optional[dt.date] = None
