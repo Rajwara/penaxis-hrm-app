@@ -26,8 +26,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-ink-800 px-4">
-      <div className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <Image
+        src="/team-photo.png"
+        alt=""
+        fill
+        priority
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-700/92 via-brand-600/88 to-ink-900/92" />
+
+      <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 p-2">
             <Image src="/penaxis-icon.png" alt="Penaxis" width={40} height={40} className="h-full w-full object-contain" priority />
