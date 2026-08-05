@@ -28,13 +28,13 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       <Image
-        src="/team-photo.png"
+        src="/team-photo.jpg"
         alt=""
         fill
         priority
         className="object-cover"
       />
-      <div className="absolute inset-0 bg-[#734FA0]/85" />
+      <div className="absolute inset-0" style={{ backgroundColor: "rgb(115 79 160 / 51%)" }} />
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
