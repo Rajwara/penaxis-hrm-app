@@ -62,6 +62,10 @@ export function formatLiveDate(d: Date): string {
   });
 }
 
+export function todayInKarachi(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: DISPLAY_TZ });
+}
+
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",

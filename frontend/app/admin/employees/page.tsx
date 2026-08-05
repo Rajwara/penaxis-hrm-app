@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { api, apiErrorMessage } from "@/lib/api";
 import { UserOut } from "@/lib/types";
-import { formatDate } from "@/lib/format";
+import { formatDate, todayInKarachi } from "@/lib/format";
 
 export default function AdminEmployeesPage() {
   const [employees, setEmployees] = useState<UserOut[]>([]);
@@ -172,7 +172,7 @@ export default function AdminEmployeesPage() {
               type="date"
               className="input"
               value={exportFrom}
-              max={exportTo || undefined}
+              max={exportTo && exportTo < todayInKarachi() ? exportTo : todayInKarachi()}
               onChange={(e) => setExportFrom(e.target.value)}
             />
           </div>
@@ -183,6 +183,7 @@ export default function AdminEmployeesPage() {
               className="input"
               value={exportTo}
               min={exportFrom || undefined}
+              max={todayInKarachi()}
               onChange={(e) => setExportTo(e.target.value)}
             />
           </div>

@@ -63,6 +63,9 @@ def export_employees_excel(
     db: Session = Depends(get_db),
     _admin: models.User = Depends(require_admin),
 ):
+    today_pkt = dt.datetime.now(DISPLAY_TZ).date()
+    if (start_date and start_date > today_pkt) or (end_date and end_date > today_pkt):
+        raise HTTPException(status_code=400, detail="Cannot filter by a future date")
     if start_date and end_date and end_date < start_date:
         start_date, end_date = end_date, start_date
 
