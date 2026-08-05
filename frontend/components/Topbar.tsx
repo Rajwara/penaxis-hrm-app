@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { fileUrl } from "@/lib/api";
+import { VerifiedBadge } from "./VerifiedBadge";
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const { user, logout } = useAuth();
@@ -23,7 +24,10 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
       </div>
       <div className="flex items-center gap-3">
         <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-ink-800">{user?.name}</p>
+          <p className="flex items-center justify-end gap-1.5 text-sm font-medium text-ink-800">
+            {user?.name}
+            {user?.employment_type === "permanent" && <VerifiedBadge />}
+          </p>
           <p className="text-xs text-ink-400">{user?.position}</p>
         </div>
         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-teal-500 text-sm font-semibold text-white">
