@@ -16,6 +16,7 @@ export default function AdminEmployeesPage() {
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [exportFrom, setExportFrom] = useState("");
   const [exportTo, setExportTo] = useState("");
+  const [exportEmployeeId, setExportEmployeeId] = useState("");
   const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
 
   const [form, setForm] = useState({
@@ -105,6 +106,7 @@ export default function AdminEmployeesPage() {
       const params: Record<string, string> = {};
       if (exportFrom) params.start_date = exportFrom;
       if (exportTo) params.end_date = exportTo;
+      if (exportEmployeeId) params.employee_id = exportEmployeeId;
       const res = await api.get("/reports/employees-excel", {
         params,
         responseType: "blob",
@@ -115,7 +117,11 @@ export default function AdminEmployeesPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const suffix = exportFrom && exportTo ? `${exportFrom}_to_${exportTo}` : new Date().toISOString().slice(0, 10);
+      const dateSuffix = exportFrom && exportTo ? `${exportFrom}_to_${exportTo}` : new Date().toISOString().slice(0, 10);
+      const namedEmployee = employees.find((e) => String(e.id) === exportEmployeeId);
+      const suffix = namedEmployee
+        ? `${namedEmployee.name.toLowerCase().replace(/\s+/g, "-")}-${dateSuffix}`
+        : dateSuffix;
       link.download = `penaxis-hr-report-${suffix}.xlsx`;
       document.body.appendChild(link);
       link.click();
@@ -146,6 +152,21 @@ export default function AdminEmployeesPage() {
       {showExportPanel && (
         <div className="card mb-6 flex flex-wrap items-end gap-3">
           <div>
+            <label className="label">Employee (optional)</label>
+            <select
+              className="input"
+              value={exportEmployeeId}
+              onChange={(e) => setExportEmployeeId(e.target.value)}
+            >
+              <option value="">All employees</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="label">From (optional)</label>
             <input
               type="date"
@@ -169,7 +190,7 @@ export default function AdminEmployeesPage() {
             {exporting ? "Preparing…" : "Download report"}
           </button>
           <p className="w-full text-xs text-ink-400">
-            Leave both blank to export full history. The date range applies to attendance and leave records — the employee roster is always complete.
+            Leave all fields blank to export everyone's full history. The date range and employee filter apply to attendance and leave records.
           </p>
         </div>
       )}
