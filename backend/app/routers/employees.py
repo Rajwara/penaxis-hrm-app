@@ -128,6 +128,7 @@ def update_employee(
         updates.pop("manager_id", None)
         updates.pop("employment_type", None)
         updates.pop("is_team_manager", None)
+        updates.pop("role", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:
         raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
 
@@ -219,6 +220,43 @@ async def upload_cv(
     delete_upload(user.cv_filename)
     user.cv_filename = stored_name
     user.cv_original_name = file.filename
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/cnic", response_model=schemas.UserOut)
+async def upload_cnic(
+    user_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.role != models.Role.ADMIN and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # Once uploaded, an employee can't replace or remove it themselves —
+    # only HR/Admin can update it from that point on.
+    if current_user.role != models.Role.ADMIN and user.cnic_filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Your CNIC has already been submitted. Contact HR if it needs to be corrected.",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_DOC_BYTES:
+        raise HTTPException(status_code=400, detail="File must be under 10 MB")
+    try:
+        stored_name = save_upload(content, file.filename or "cnic", ALLOWED_IMAGE_EXT | ALLOWED_DOC_EXT)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    delete_upload(user.cnic_filename)
+    user.cnic_filename = stored_name
+    user.cnic_original_name = file.filename
     db.commit()
     db.refresh(user)
     return user

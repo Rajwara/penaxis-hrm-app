@@ -48,6 +48,7 @@ class UserUpdate(BaseModel):
     manager_id: Optional[int] = None
     employment_type: Optional[EmploymentType] = None
     is_team_manager: Optional[bool] = None
+    role: Optional[Role] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
@@ -73,6 +74,8 @@ class UserOut(UserBase):
     profile_picture_url: Optional[str] = None
     cv_url: Optional[str] = None
     cv_original_name: Optional[str] = None
+    cnic_url: Optional[str] = None
+    cnic_original_name: Optional[str] = None
     manager_id: Optional[int] = None
     manager_name: Optional[str] = None
     is_manager: bool = False

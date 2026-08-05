@@ -18,9 +18,11 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [uploadingPic, setUploadingPic] = useState(false);
   const [uploadingCv, setUploadingCv] = useState(false);
+  const [uploadingCnic, setUploadingCnic] = useState(false);
 
   const picInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
+  const cnicInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     phone: "",
@@ -119,6 +121,25 @@ export default function ProfilePage() {
     } finally {
       setUploadingCv(false);
       if (cvInputRef.current) cvInputRef.current.value = "";
+    }
+  }
+
+  async function handleCnicChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!user || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    setUploadingCnic(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      await api.post(`/employees/${user.id}/cnic`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await refreshUser();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not upload CNIC"));
+    } finally {
+      setUploadingCnic(false);
+      if (cnicInputRef.current) cnicInputRef.current.value = "";
     }
   }
 
@@ -258,6 +279,36 @@ export default function ProfilePage() {
                   accept=".pdf,.doc,.docx"
                   className="hidden"
                   onChange={handleCvChange}
+                />
+              </div>
+
+              <div className="mt-5 border-t border-ink-100 pt-5">
+                <p className="label mb-2">CNIC</p>
+                {user?.cnic_url ? (
+                  <p className="text-sm font-medium text-success">✓ Submitted</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-ink-400">No CNIC uploaded yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => cnicInputRef.current?.click()}
+                      className="mt-2 block text-xs font-semibold text-ink-600 hover:text-ink-900"
+                    >
+                      {uploadingCnic ? "Uploading…" : "Upload CNIC"}
+                    </button>
+                  </>
+                )}
+                {user?.cnic_url && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    Once submitted, only HR can update this. Contact HR for corrections.
+                  </p>
+                )}
+                <input
+                  ref={cnicInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  onChange={handleCnicChange}
                 />
               </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
-import { api, apiErrorMessage } from "@/lib/api";
+import { api, apiErrorMessage, fileUrl } from "@/lib/api";
 import { UserOut, EmploymentType } from "@/lib/types";
 import { formatDate, todayInKarachi } from "@/lib/format";
 
@@ -19,6 +19,17 @@ export default function AdminEmployeesPage() {
   const [exportTo, setExportTo] = useState("");
   const [exportEmployeeId, setExportEmployeeId] = useState("");
   const [quotaEdits, setQuotaEdits] = useState<Record<number, string>>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    department: "",
+    position: "",
+    role: "employee" as "employee" | "admin",
+    employment_type: "permanent" as EmploymentType,
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -103,6 +114,47 @@ export default function AdminEmployeesPage() {
       manager_id: managerId ? Number(managerId) : null,
     });
     await load();
+  }
+
+  function handleEditOpen(emp: UserOut) {
+    setEditingId(emp.id);
+    setEditError("");
+    setEditForm({
+      name: emp.name,
+      phone: emp.phone || "",
+      department: emp.department,
+      position: emp.position,
+      role: emp.role,
+      employment_type: emp.employment_type,
+    });
+  }
+
+  async function handleEditSave() {
+    if (editingId === null) return;
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      await api.patch(`/employees/${editingId}`, editForm);
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setEditError(apiErrorMessage(err, "Could not save changes"));
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleAdminCnicReplace(id: number, file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      await api.post(`/employees/${id}/cnic`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not upload CNIC"));
+    }
   }
 
   async function handleManagerFlagToggle(id: number, value: boolean) {
@@ -350,6 +402,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Joined</th>
                   <th className="pb-3 pr-4">Annual balance</th>
                   <th className="pb-3 pr-4">Adjustment</th>
+                  <th className="pb-3 pr-4">CNIC</th>
                   <th className="pb-3"></th>
                 </tr>
               </thead>
@@ -443,18 +496,128 @@ export default function AdminEmployeesPage() {
                         )}
                       </div>
                     </td>
+                    <td className="py-3 pr-4">
+                      {emp.cnic_url ? (
+                        <a
+                          href={fileUrl(emp.cnic_url) || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-teal-600 hover:underline"
+                        >
+                          Download
+                        </a>
+                      ) : (
+                        <span className="text-xs text-ink-400">Not submitted</span>
+                      )}
+                      <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
+                        {emp.cnic_url ? "Replace" : "Upload"}
+                        <input
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handleAdminCnicReplace(emp.id, e.target.files[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </td>
                     <td className="py-3 text-right">
-                      <button
-                        onClick={() => handleDelete(emp.id, emp.name)}
-                        className="text-xs font-semibold text-danger hover:opacity-70"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => handleEditOpen(emp)}
+                          className="text-xs font-semibold text-brand-600 hover:opacity-70"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(emp.id, emp.name)}
+                          className="text-xs font-semibold text-danger hover:opacity-70"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {editingId !== null && (
+              <div className="mt-4 border-t border-ink-100 pt-4">
+                <p className="mb-3 text-sm font-semibold text-ink-800">
+                  Editing {employees.find((e) => e.id === editingId)?.name}
+                </p>
+                {editError && (
+                  <div className="mb-3 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">{editError}</div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="label">Name</label>
+                    <input
+                      className="input"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Phone</label>
+                    <input
+                      className="input"
+                      value={editForm.phone}
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Department</label>
+                    <input
+                      className="input"
+                      value={editForm.department}
+                      onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Position</label>
+                    <input
+                      className="input"
+                      value={editForm.position}
+                      onChange={(e) => setEditForm({ ...editForm, position: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Role</label>
+                    <select
+                      className="input"
+                      value={editForm.role}
+                      onChange={(e) => setEditForm({ ...editForm, role: e.target.value as "employee" | "admin" })}
+                    >
+                      <option value="employee">Employee</option>
+                      <option value="admin">Admin / HR</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Employment type</label>
+                    <select
+                      className="input"
+                      value={editForm.employment_type}
+                      onChange={(e) => setEditForm({ ...editForm, employment_type: e.target.value as EmploymentType })}
+                    >
+                      <option value="permanent">Permanent</option>
+                      <option value="contract">Contract</option>
+                      <option value="intern">Intern (3-month period)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button onClick={handleEditSave} disabled={savingEdit} className="btn-primary">
+                    {savingEdit ? "Saving…" : "Save changes"}
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="btn-secondary">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

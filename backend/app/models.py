@@ -85,6 +85,8 @@ class User(Base):
     profile_picture = Column(String, nullable=True)  # stored filename
     cv_filename = Column(String, nullable=True)  # stored filename on disk
     cv_original_name = Column(String, nullable=True)  # original uploaded filename
+    cnic_filename = Column(String, nullable=True)  # stored filename on disk
+    cnic_original_name = Column(String, nullable=True)  # original uploaded filename
 
     manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     manager = relationship("User", remote_side=[id], backref="reports")
@@ -116,6 +118,10 @@ class User(Base):
     @property
     def cv_url(self) -> str | None:
         return f"/uploads/{self.cv_filename}" if self.cv_filename else None
+
+    @property
+    def cnic_url(self) -> str | None:
+        return f"/uploads/{self.cnic_filename}" if self.cnic_filename else None
 
     @property
     def internship_end_date(self) -> dt.date | None:
