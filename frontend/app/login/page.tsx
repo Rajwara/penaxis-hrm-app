@@ -34,7 +34,7 @@ export default function LoginPage() {
         priority
         className="object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-700/92 via-brand-600/88 to-ink-900/92" />
+      <div className="absolute inset-0 bg-[#734FA0]/85" />
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center">
