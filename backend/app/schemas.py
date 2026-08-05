@@ -59,6 +59,10 @@ class InternshipFeedbackCreate(BaseModel):
     feedback: str
 
 
+class PasswordReset(BaseModel):
+    new_password: str
+
+
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 

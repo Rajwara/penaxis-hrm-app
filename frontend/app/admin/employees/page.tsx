@@ -30,6 +30,9 @@ export default function AdminEmployeesPage() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -119,6 +122,8 @@ export default function AdminEmployeesPage() {
   function handleEditOpen(emp: UserOut) {
     setEditingId(emp.id);
     setEditError("");
+    setNewPassword("");
+    setPasswordMessage("");
     setEditForm({
       name: emp.name,
       phone: emp.phone || "",
@@ -141,6 +146,21 @@ export default function AdminEmployeesPage() {
       setEditError(apiErrorMessage(err, "Could not save changes"));
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (editingId === null || newPassword.length < 6) return;
+    setResettingPassword(true);
+    setPasswordMessage("");
+    try {
+      await api.post(`/employees/${editingId}/reset-password`, { new_password: newPassword });
+      setPasswordMessage("Password reset. Share the new password with them securely.");
+      setNewPassword("");
+    } catch (err) {
+      setPasswordMessage(apiErrorMessage(err, "Could not reset password"));
+    } finally {
+      setResettingPassword(false);
     }
   }
 
@@ -615,6 +635,32 @@ export default function AdminEmployeesPage() {
                   <button onClick={() => setEditingId(null)} className="btn-secondary">
                     Cancel
                   </button>
+                </div>
+
+                <div className="mt-5 border-t border-ink-100 pt-4">
+                  <p className="label mb-2">Reset password</p>
+                  <p className="mb-2 text-xs text-ink-400">
+                    If they've forgotten their password, set a new temporary one here and share it with them directly.
+                  </p>
+                  {passwordMessage && (
+                    <p className="mb-2 text-sm text-ink-700">{passwordMessage}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="New password (min 6 characters)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <button
+                      onClick={handleResetPassword}
+                      disabled={resettingPassword || newPassword.length < 6}
+                      className="btn-secondary whitespace-nowrap"
+                    >
+                      {resettingPassword ? "Resetting…" : "Reset password"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

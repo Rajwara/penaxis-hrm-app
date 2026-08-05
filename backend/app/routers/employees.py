@@ -107,6 +107,23 @@ def update_leave_quota(
     return user
 
 
+@router.post("/{user_id}/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(
+    user_id: int,
+    payload: schemas.PasswordReset,
+    db: Session = Depends(get_db),
+    _admin: models.User = Depends(require_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return None
+
+
 @router.patch("/{user_id}", response_model=schemas.UserOut)
 def update_employee(
     user_id: int,
