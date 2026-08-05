@@ -18,6 +18,9 @@ export interface UserOut {
   profile_picture_url: string | null;
   cv_url: string | null;
   cv_original_name: string | null;
+  manager_id: number | null;
+  manager_name: string | null;
+  is_manager: boolean;
 }
 
 export interface AttendanceOut {

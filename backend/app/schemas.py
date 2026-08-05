@@ -31,6 +31,7 @@ class UserCreate(UserBase):
     password: str
     role: Role = Role.EMPLOYEE
     leave_quota: float = 12.0
+    manager_id: Optional[int] = None
 
 
 class UserUpdate(BaseModel):
@@ -42,6 +43,7 @@ class UserUpdate(BaseModel):
     years_experience: Optional[float] = None
     birthday: Optional[dt.date] = None
     skills: Optional[list[str]] = None
+    manager_id: Optional[int] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
@@ -63,6 +65,9 @@ class UserOut(UserBase):
     profile_picture_url: Optional[str] = None
     cv_url: Optional[str] = None
     cv_original_name: Optional[str] = None
+    manager_id: Optional[int] = None
+    manager_name: Optional[str] = None
+    is_manager: bool = False
 
 
 # ---------- Attendance ----------

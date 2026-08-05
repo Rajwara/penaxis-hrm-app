@@ -83,9 +83,14 @@ def user_leaves(
 def all_leaves(
     status_filter: models.LeaveStatus | None = None,
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
-    q = db.query(models.LeaveRequest)
+    q = db.query(models.LeaveRequest).join(
+        models.User, models.LeaveRequest.user_id == models.User.id
+    )
+    if current_user.role != models.Role.ADMIN:
+        # Managers only see requests from people who report to them
+        q = q.filter(models.User.manager_id == current_user.id)
     if status_filter:
         q = q.filter(models.LeaveRequest.status == status_filter)
     leaves = q.order_by(models.LeaveRequest.created_at.desc()).all()
@@ -103,16 +108,25 @@ def update_leave_status(
     leave_id: int,
     payload: schemas.LeaveStatusUpdate,
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     leave = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == leave_id).first()
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
+
+    employee = leave.user
+    is_allowed = current_user.role == models.Role.ADMIN or (
+        employee is not None and employee.manager_id == current_user.id
+    )
+    if not is_allowed:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to decide this request"
+        )
+
     if leave.status != models.LeaveStatus.PENDING:
         raise HTTPException(status_code=400, detail="This request has already been decided")
 
     if payload.status == models.LeaveStatus.APPROVED:
-        employee = leave.user
         if (
             leave.leave_type != models.LeaveType.UNPAID
             and leave.days > employee.leave_quota
@@ -126,7 +140,7 @@ def update_leave_status(
 
     leave.status = payload.status
     leave.decided_at = dt.datetime.utcnow()
-    leave.decided_by = admin.id
+    leave.decided_by = current_user.id
     db.commit()
     db.refresh(leave)
     return leave

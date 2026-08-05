@@ -24,6 +24,7 @@ export default function AdminEmployeesPage() {
     phone: "",
     leave_quota: "12",
     role: "employee" as "employee" | "admin",
+    manager_id: "",
   });
 
   async function load() {
@@ -48,6 +49,7 @@ export default function AdminEmployeesPage() {
       await api.post("/employees", {
         ...form,
         leave_quota: Number(form.leave_quota),
+        manager_id: form.manager_id ? Number(form.manager_id) : null,
       });
       setShowForm(false);
       setForm({
@@ -59,6 +61,7 @@ export default function AdminEmployeesPage() {
         phone: "",
         leave_quota: "12",
         role: "employee",
+        manager_id: "",
       });
       await load();
     } catch (err) {
@@ -82,6 +85,13 @@ export default function AdminEmployeesPage() {
       const next = { ...prev };
       delete next[id];
       return next;
+    });
+    await load();
+  }
+
+  async function handleManagerChange(id: number, managerId: string) {
+    await api.patch(`/employees/${id}`, {
+      manager_id: managerId ? Number(managerId) : null,
     });
     await load();
   }
@@ -202,6 +212,21 @@ export default function AdminEmployeesPage() {
                 onChange={(e) => setForm({ ...form, leave_quota: e.target.value })}
               />
             </div>
+            <div>
+              <label className="label">Reports to (manager)</label>
+              <select
+                className="input"
+                value={form.manager_id}
+                onChange={(e) => setForm({ ...form, manager_id: e.target.value })}
+              >
+                <option value="">No manager</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? "Adding…" : "Add employee"}
@@ -220,6 +245,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Name</th>
                   <th className="pb-3 pr-4">Role</th>
                   <th className="pb-3 pr-4">Department</th>
+                  <th className="pb-3 pr-4">Manager</th>
                   <th className="pb-3 pr-4">Joined</th>
                   <th className="pb-3 pr-4">Leave quota</th>
                   <th className="pb-3"></th>
@@ -229,11 +255,34 @@ export default function AdminEmployeesPage() {
                 {employees.map((emp) => (
                   <tr key={emp.id} className="border-b border-ink-50 last:border-0">
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-ink-800">{emp.name}</p>
+                      <p className="font-medium text-ink-800">
+                        {emp.name}
+                        {emp.is_manager && (
+                          <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-600">
+                            Manager
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-ink-400">{emp.email}</p>
                     </td>
                     <td className="py-3 pr-4 capitalize text-ink-600">{emp.role}</td>
                     <td className="py-3 pr-4 text-ink-600">{emp.department}</td>
+                    <td className="py-3 pr-4">
+                      <select
+                        className="input px-2 py-1.5 text-xs"
+                        value={emp.manager_id ?? ""}
+                        onChange={(e) => handleManagerChange(emp.id, e.target.value)}
+                      >
+                        <option value="">No manager</option>
+                        {employees
+                          .filter((m) => m.id !== emp.id)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
                     <td className="py-3 pr-4 text-ink-600">{formatDate(emp.join_date)}</td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">

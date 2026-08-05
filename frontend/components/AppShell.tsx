@@ -10,26 +10,34 @@ export function AppShell({
   title,
   subtitle,
   adminOnly = false,
+  managerOnly = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   adminOnly?: boolean;
+  managerOnly?: boolean;
   children: ReactNode;
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  const isAdmin = user?.role === "admin";
+  const isManagerOrAdmin = isAdmin || !!user?.is_manager;
+
+  const forbidden =
+    (adminOnly && !isAdmin) || (managerOnly && !isManagerOrAdmin);
+
   useEffect(() => {
     if (loading) return;
     if (!user) {
       router.replace("/login");
-    } else if (adminOnly && user.role !== "admin") {
+    } else if (forbidden) {
       router.replace("/dashboard");
     }
-  }, [user, loading, adminOnly, router]);
+  }, [user, loading, forbidden, router]);
 
-  if (loading || !user || (adminOnly && user.role !== "admin")) {
+  if (loading || !user || forbidden) {
     return (
       <div className="flex h-screen items-center justify-center bg-ink-50">
         <p className="text-sm text-ink-400">Loading…</p>

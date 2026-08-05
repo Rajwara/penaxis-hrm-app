@@ -170,6 +170,10 @@ export default function ProfilePage() {
                   <dd className="text-ink-800">{user?.department}</dd>
                 </div>
                 <div className="flex justify-between">
+                  <dt className="text-ink-400">Reports to</dt>
+                  <dd className="text-ink-800">{user?.manager_name || "—"}</dd>
+                </div>
+                <div className="flex justify-between">
                   <dt className="text-ink-400">Phone</dt>
                   <dd className="text-ink-800">{user?.phone || "—"}</dd>
                 </div>

@@ -61,6 +61,17 @@ class User(Base):
     cv_filename = Column(String, nullable=True)  # stored filename on disk
     cv_original_name = Column(String, nullable=True)  # original uploaded filename
 
+    manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    manager = relationship("User", remote_side=[id], backref="reports")
+
+    @property
+    def manager_name(self) -> str | None:
+        return self.manager.name if self.manager else None
+
+    @property
+    def is_manager(self) -> bool:
+        return len(self.reports) > 0
+
     @property
     def skills(self) -> list[str]:
         try:

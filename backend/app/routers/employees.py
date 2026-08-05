@@ -48,6 +48,7 @@ def create_employee(
         position=payload.position,
         phone=payload.phone,
         leave_quota=payload.leave_quota,
+        manager_id=payload.manager_id,
     )
     db.add(user)
     db.commit()
@@ -120,6 +121,9 @@ def update_employee(
     if current_user.role != models.Role.ADMIN:
         updates.pop("department", None)
         updates.pop("position", None)
+        updates.pop("manager_id", None)
+    elif "manager_id" in updates and updates["manager_id"] == user_id:
+        raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
 
     for field, value in updates.items():
         setattr(user, field, value)  # skills uses the model's property setter

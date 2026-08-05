@@ -59,6 +59,14 @@ function Icon({ name }: { name: string }) {
           <path d="M16 4.5c1.5.3 2.6 1.6 2.6 3.1S17.5 10.4 16 10.7M19 14.2c1.7.5 3 1.8 3 4.3" strokeLinecap="round" />
         </svg>
       );
+    case "team-check":
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="8" cy="8" r="3.2" />
+          <path d="M2.5 19c0-3.3 2.6-5 5.5-5s5.5 1.7 5.5 5" strokeLinecap="round" />
+          <path d="M15 13.5l2 2 3.5-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -67,7 +75,17 @@ function Icon({ name }: { name: string }) {
 export function Sidebar() {
   const { user } = useAuth();
   const pathname = usePathname();
-  const links = user?.role === "admin" ? adminLinks : employeeLinks;
+
+  const isAdmin = user?.role === "admin";
+  const links = isAdmin
+    ? adminLinks
+    : [
+        ...employeeLinks.slice(0, 3),
+        ...(user?.is_manager
+          ? [{ href: "/team/leaves", label: "Team leave", icon: "team-check" }]
+          : []),
+        employeeLinks[3],
+      ];
 
   return (
     <aside className="hidden w-60 flex-col border-r border-ink-100 bg-white px-4 py-6 md:flex">
