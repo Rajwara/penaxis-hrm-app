@@ -156,6 +156,15 @@ class User(Base):
             return False
         return (dt.date.today() - self.join_date).days >= ANNUAL_LEAVE_ELIGIBILITY_DAYS
 
+    def _accrual_start_date(self) -> dt.date:
+        """
+        Accrual begins the 1st of the month AFTER they joined — someone who
+        joins any time in September gets nothing for September itself, and
+        receives their first month's allocation on October 1st.
+        """
+        join_month_start = dt.date(self.join_date.year, self.join_date.month, 1)
+        return _add_months(join_month_start, 1)
+
     def _accrued_for_year(self, year: int, as_of: dt.date | None = None) -> float:
         """Accrual for a single calendar year, as of a given date (defaults to Dec 31 of that year)."""
         if not self.join_date:
@@ -163,7 +172,7 @@ class User(Base):
         if as_of is None:
             as_of = dt.date(year, 12, 31)
         year_start = dt.date(year, 1, 1)
-        effective_start = max(self.join_date, year_start)
+        effective_start = max(self._accrual_start_date(), year_start)
         if effective_start > as_of:
             return 0.0
         months_elapsed = (
@@ -240,15 +249,21 @@ class User(Base):
 
     @property
     def probation_leave_accrued(self) -> float:
-        """1 day for every full month elapsed since join_date, all-time (no annual reset —
-        Contract/Probation and internships are short, fixed-term statuses)."""
+        """1 day for every full month elapsed since the month after they joined,
+        all-time (no annual reset — Contract/Probation and internships are short,
+        fixed-term statuses)."""
         if not self.join_date:
             return 0.0
         today = dt.date.today()
-        months = (today.year - self.join_date.year) * 12 + (today.month - self.join_date.month)
-        if today.day < self.join_date.day:
-            months -= 1
-        return float(max(0, months))
+        effective_start = self._accrual_start_date()
+        if effective_start > today:
+            return 0.0
+        months_elapsed = (
+            (today.year - effective_start.year) * 12
+            + (today.month - effective_start.month)
+            + 1
+        )
+        return float(max(0, months_elapsed))
 
     @property
     def probation_leave_used(self) -> float:
