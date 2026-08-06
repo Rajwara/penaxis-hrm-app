@@ -67,6 +67,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(Role), default=Role.EMPLOYEE, nullable=False)
+    # Deliberately a boolean, not a new Role enum value: Postgres enum types
+    # can't easily accept new members without special migration handling,
+    # and this needs to work safely on an existing production database.
+    is_super_admin = Column(Boolean, default=False, nullable=False)
     department = Column(String, default="General")
     position = Column(String, default="Staff")
     phone = Column(String, default="")

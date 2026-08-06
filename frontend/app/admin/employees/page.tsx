@@ -33,6 +33,13 @@ export default function AdminEmployeesPage() {
   const [newPassword, setNewPassword] = useState("");
   const [resettingPassword, setResettingPassword] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkResults, setBulkResults] = useState<
+    { name: string; email: string; password: string | null; status: string; note: string }[]
+  >([]);
+  const [bulkError, setBulkError] = useState("");
+  const [promoting, setPromoting] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -134,6 +141,53 @@ export default function AdminEmployeesPage() {
     });
   }
 
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    setBulkImporting(true);
+    setBulkError("");
+    setBulkResults([]);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await api.post("/employees/bulk-import", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setBulkResults(res.data.results);
+      await load();
+    } catch (err) {
+      setBulkError(apiErrorMessage(err, "Could not import this file"));
+    } finally {
+      setBulkImporting(false);
+      e.target.value = "";
+    }
+  }
+
+  function copyBulkResultsAsText() {
+    const lines = bulkResults
+      .filter((r) => r.status === "created")
+      .map((r) => `${r.name} — ${r.email} — ${r.password}`);
+    navigator.clipboard.writeText(lines.join("\n"));
+  }
+
+  async function handlePromoteSuperAdmin(emp: UserOut) {
+    if (
+      !confirm(
+        `Make ${emp.name} a super admin? They'll gain full access and become invisible to every other admin — no one else will be able to see, edit, or find them in the system. This should only be used for one trusted account.`
+      )
+    )
+      return;
+    setPromoting(emp.id);
+    try {
+      await api.post(`/employees/${emp.id}/promote-super-admin`);
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not promote this account"));
+    } finally {
+      setPromoting(null);
+    }
+  }
+
   async function handleEditSave() {
     if (editingId === null) return;
     setSavingEdit(true);
@@ -222,6 +276,9 @@ export default function AdminEmployeesPage() {
       <div className="mb-5 flex items-center justify-between">
         <p className="text-sm text-ink-400">{employees.length} active employee(s)</p>
         <div className="flex gap-2">
+          <button onClick={() => setShowBulkImport((s) => !s)} className="btn-secondary">
+            ⬆ Bulk import
+          </button>
           <button onClick={() => setShowExportPanel((s) => !s)} className="btn-secondary">
             ⬇ Export to Excel
           </button>
@@ -230,6 +287,67 @@ export default function AdminEmployeesPage() {
           </button>
         </div>
       </div>
+
+      {showBulkImport && (
+        <div className="card mb-6">
+          <p className="mb-2 text-sm font-semibold text-ink-800">Bulk import from spreadsheet</p>
+          <p className="mb-3 text-xs text-ink-400">
+            Upload an .xlsx roster with Name, Title, Joining Date, and Email columns. A random
+            password is generated for each new account — save the list below immediately, since
+            it's only shown this once.
+          </p>
+          <label className="btn-secondary inline-flex cursor-pointer">
+            {bulkImporting ? "Importing…" : "Choose file"}
+            <input type="file" accept=".xlsx" className="hidden" onChange={handleBulkImport} />
+          </label>
+
+          {bulkError && (
+            <div className="mt-3 rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">{bulkError}</div>
+          )}
+
+          {bulkResults.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold text-ink-800">
+                  {bulkResults.filter((r) => r.status === "created").length} account(s) created
+                </p>
+                <button onClick={copyBulkResultsAsText} className="text-xs font-semibold text-teal-600 hover:underline">
+                  Copy list to share
+                </button>
+              </div>
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-ink-100">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-ink-50">
+                    <tr className="text-left text-xs uppercase tracking-wide text-ink-400">
+                      <th className="px-3 py-2">Name</th>
+                      <th className="px-3 py-2">Email</th>
+                      <th className="px-3 py-2">Password</th>
+                      <th className="px-3 py-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bulkResults.map((r, i) => (
+                      <tr key={i} className="border-t border-ink-50">
+                        <td className="px-3 py-2 text-ink-800">{r.name}</td>
+                        <td className="px-3 py-2 text-ink-600">{r.email}</td>
+                        <td className="px-3 py-2 font-mono text-ink-800">{r.password || "—"}</td>
+                        <td className="px-3 py-2">
+                          {r.status === "created" ? (
+                            <span className="text-success">Created</span>
+                          ) : (
+                            <span className="text-ink-400">Skipped</span>
+                          )}
+                          {r.note && <p className="text-[11px] text-amber-600">{r.note}</p>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {showExportPanel && (
         <div className="card mb-6 flex flex-wrap items-end gap-3">
@@ -661,6 +779,25 @@ export default function AdminEmployeesPage() {
                       {resettingPassword ? "Resetting…" : "Reset password"}
                     </button>
                   </div>
+                </div>
+
+                <div className="mt-5 border-t border-danger/20 pt-4">
+                  <p className="label mb-2 text-danger">Super admin access</p>
+                  <p className="mb-2 text-xs text-ink-400">
+                    Grants full access and makes this account invisible to every other admin —
+                    hidden from the employee list, exports, and everyone else's edit/delete/reset
+                    actions. Use this for at most one trusted account.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const emp = employees.find((e) => e.id === editingId);
+                      if (emp) handlePromoteSuperAdmin(emp);
+                    }}
+                    disabled={promoting === editingId}
+                    className="btn-secondary border-danger/30 text-danger"
+                  >
+                    {promoting === editingId ? "Promoting…" : "Make super admin"}
+                  </button>
                 </div>
               </div>
             )}

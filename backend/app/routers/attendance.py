@@ -102,6 +102,9 @@ def user_attendance(
 ):
     if current_user.role != models.Role.ADMIN and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if target and target.is_super_admin and current_user.id != user_id and not current_user.is_super_admin:
+        raise HTTPException(status_code=404, detail="Employee not found")
     q = db.query(models.Attendance).filter(models.Attendance.user_id == user_id)
     if month:
         q = q.filter(extract("month", models.Attendance.date) == month)
