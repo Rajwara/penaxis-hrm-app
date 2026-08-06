@@ -158,12 +158,11 @@ class User(Base):
 
     def _accrual_start_date(self) -> dt.date:
         """
-        Accrual begins the 1st of the month AFTER they joined — someone who
-        joins any time in September gets nothing for September itself, and
-        receives their first month's allocation on October 1st.
+        Accrual begins the 1st of the month they joined in — someone who
+        joins August 3rd is treated as present for all of August and gets
+        that month's allocation right away, not on September 1st.
         """
-        join_month_start = dt.date(self.join_date.year, self.join_date.month, 1)
-        return _add_months(join_month_start, 1)
+        return dt.date(self.join_date.year, self.join_date.month, 1)
 
     def _accrued_for_year(self, year: int, as_of: dt.date | None = None) -> float:
         """Accrual for a single calendar year, as of a given date (defaults to Dec 31 of that year)."""
