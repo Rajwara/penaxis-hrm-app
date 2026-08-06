@@ -156,31 +156,32 @@ class User(Base):
             return False
         return (dt.date.today() - self.join_date).days >= ANNUAL_LEAVE_ELIGIBILITY_DAYS
 
-    def _accrual_start_date(self) -> dt.date:
+    def _monthly_credits_as_of(self, as_of: dt.date) -> int:
         """
-        Accrual begins the 1st of the month they joined in — someone who
-        joins August 3rd is treated as present for all of August and gets
-        that month's allocation right away, not on September 1st.
+        How many monthly credits they've received by `as_of`. The first
+        credit lands immediately on their join date; every credit after
+        that lands on the monthly anniversary of that join date — someone
+        who joined July 27th gets credit #2 on August 27th, #3 on
+        September 27th, and so on (not on the 1st of each calendar month).
         """
-        return dt.date(self.join_date.year, self.join_date.month, 1)
+        if not self.join_date or as_of < self.join_date:
+            return 0
+        n = 0
+        while _add_months(self.join_date, n + 1) <= as_of:
+            n += 1
+        return n + 1
 
     def _accrued_for_year(self, year: int, as_of: dt.date | None = None) -> float:
         """Accrual for a single calendar year, as of a given date (defaults to Dec 31 of that year)."""
         if not self.join_date:
             return 0.0
-        if as_of is None:
-            as_of = dt.date(year, 12, 31)
-        year_start = dt.date(year, 1, 1)
-        effective_start = max(self._accrual_start_date(), year_start)
-        if effective_start > as_of:
-            return 0.0
-        months_elapsed = (
-            (as_of.year - effective_start.year) * 12
-            + (as_of.month - effective_start.month)
-            + 1
-        )
-        months_elapsed = max(0, months_elapsed)
-        return round(min(ANNUAL_LEAVE_PER_YEAR, months_elapsed * MONTHLY_ACCRUAL), 2)
+        year_end = dt.date(year, 12, 31)
+        as_of = min(as_of, year_end) if as_of else year_end
+        year_before_start = dt.date(year - 1, 12, 31)
+        credits_through_as_of = self._monthly_credits_as_of(as_of)
+        credits_before_year = self._monthly_credits_as_of(year_before_start)
+        credits_in_year = max(0, credits_through_as_of - credits_before_year)
+        return round(min(ANNUAL_LEAVE_PER_YEAR, credits_in_year * MONTHLY_ACCRUAL), 2)
 
     def _used_for_year(self, year: int) -> float:
         session = object_session(self)
@@ -201,8 +202,7 @@ class User(Base):
     def annual_leave_accrued(self) -> float:
         """
         This calendar year's accrual only (not including carry-forward from prior years),
-        at 1.5/month starting the month they joined (or January 1st, for anyone who
-        joined in a prior year).
+        at 1.5 per monthly anniversary of their join date.
         """
         today = dt.date.today()
         return self._accrued_for_year(today.year, as_of=today)
@@ -248,21 +248,11 @@ class User(Base):
 
     @property
     def probation_leave_accrued(self) -> float:
-        """1 day for every full month elapsed since the month after they joined,
-        all-time (no annual reset — Contract/Probation and internships are short,
-        fixed-term statuses)."""
+        """1 day per monthly anniversary of their join date, all-time (no annual
+        reset — Contract/Probation and internships are short, fixed-term statuses)."""
         if not self.join_date:
             return 0.0
-        today = dt.date.today()
-        effective_start = self._accrual_start_date()
-        if effective_start > today:
-            return 0.0
-        months_elapsed = (
-            (today.year - effective_start.year) * 12
-            + (today.month - effective_start.month)
-            + 1
-        )
-        return float(max(0, months_elapsed))
+        return float(self._monthly_credits_as_of(dt.date.today()))
 
     @property
     def probation_leave_used(self) -> float:
