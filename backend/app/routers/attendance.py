@@ -111,3 +111,42 @@ def user_attendance(
     if year:
         q = q.filter(extract("year", models.Attendance.date) == year)
     return q.order_by(models.Attendance.date.desc(), models.Attendance.check_in.desc()).all()
+
+
+@router.get("", response_model=list[schemas.AttendanceOutWithUser])
+def team_attendance(
+    user_id: int | None = Query(None, description="Filter to a single employee"),
+    start_date: dt.date | None = Query(None),
+    end_date: dt.date | None = Query(None),
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    """
+    Team-wide attendance view for Admin/HR (and super admins): every check-in
+    and check-out across all employees, optionally narrowed to one employee
+    and/or a date range. Backs the "Team Attendance" page.
+    """
+    q = db.query(models.Attendance).join(models.User, models.Attendance.user_id == models.User.id)
+    if not admin.is_super_admin:
+        # Regular admins can't see super-admin accounts anywhere, including here.
+        q = q.filter(models.User.is_super_admin == False)  # noqa: E712
+    if user_id is not None:
+        q = q.filter(models.Attendance.user_id == user_id)
+    if start_date is not None:
+        q = q.filter(models.Attendance.date >= start_date)
+    if end_date is not None:
+        q = q.filter(models.Attendance.date <= end_date)
+
+    rows = q.order_by(models.Attendance.date.desc(), models.Attendance.check_in.desc()).all()
+    return [
+        schemas.AttendanceOutWithUser(
+            id=r.id,
+            user_id=r.user_id,
+            date=r.date,
+            check_in=r.check_in,
+            check_out=r.check_out,
+            user_name=r.user.name,
+            user_department=r.user.department,
+        )
+        for r in rows
+    ]

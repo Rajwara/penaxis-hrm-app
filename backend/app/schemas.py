@@ -108,6 +108,11 @@ class AttendanceOut(BaseModel):
     check_out: Optional[dt.datetime] = None
 
 
+class AttendanceOutWithUser(AttendanceOut):
+    user_name: str
+    user_department: str
+
+
 # ---------- Leave ----------
 class LeaveCreate(BaseModel):
     start_date: dt.date

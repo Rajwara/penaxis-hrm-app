@@ -47,6 +47,11 @@ export interface AttendanceOut {
   check_out: string | null;
 }
 
+export interface AttendanceOutWithUser extends AttendanceOut {
+  user_name: string;
+  user_department: string;
+}
+
 export type LeaveType = "annual" | "sick" | "casual" | "unpaid" | "other";
 export type LeaveStatus = "pending" | "approved" | "rejected";
 
