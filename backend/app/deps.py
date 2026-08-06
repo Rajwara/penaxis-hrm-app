@@ -39,3 +39,17 @@ def require_admin(current_user: models.User = Depends(get_current_user)) -> mode
             detail="Admin/HR privileges required",
         )
     return current_user
+
+
+def require_super_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    """
+    Only the super admin themselves can grant or revoke super-admin status —
+    not just any regular Admin/HR account. This is deliberately stricter
+    than require_admin.
+    """
+    if not current_user.is_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a super admin can do this",
+        )
+    return current_user

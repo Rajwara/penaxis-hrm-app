@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..security import hash_password
-from ..deps import get_current_user, require_admin
+from ..deps import get_current_user, require_admin, require_super_admin
 from ..storage import (
     save_upload,
     delete_upload,
@@ -305,13 +305,14 @@ async def upload_cnic(
 def promote_super_admin(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_super_admin),
 ):
     """
     Grants full admin rights plus total invisibility to every other admin/HR
     user. This is deliberately a separate, explicit action rather than a
     field on the general edit form — it's too sensitive to be a checkbox
-    anyone with HR access could casually flip.
+    anyone with HR access could casually flip. Only an existing super admin
+    can grant this to someone else; a regular Admin/HR account cannot.
     """
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -327,12 +328,10 @@ def promote_super_admin(
 def demote_super_admin(
     user_id: int,
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_super_admin),
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    if _hidden_from(admin, user):
         raise HTTPException(status_code=404, detail="Employee not found")
     user.is_super_admin = False
     db.commit()

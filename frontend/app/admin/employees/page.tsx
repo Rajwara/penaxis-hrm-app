@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { BirthdayBanner } from "@/components/BirthdayBanner";
+import { useAuth } from "@/lib/auth-context";
 import { api, apiErrorMessage, fileUrl } from "@/lib/api";
 import { UserOut, EmploymentType } from "@/lib/types";
 import { formatDate, todayInKarachi } from "@/lib/format";
 
 export default function AdminEmployeesPage() {
+  const { user: currentUser } = useAuth();
   const [employees, setEmployees] = useState<UserOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -792,24 +794,26 @@ export default function AdminEmployeesPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 border-t border-danger/20 pt-4">
-                  <p className="label mb-2 text-danger">Super admin access</p>
-                  <p className="mb-2 text-xs text-ink-400">
-                    Grants full access and makes this account invisible to every other admin —
-                    hidden from the employee list, exports, and everyone else's edit/delete/reset
-                    actions. Use this for at most one trusted account.
-                  </p>
-                  <button
-                    onClick={() => {
-                      const emp = employees.find((e) => e.id === editingId);
-                      if (emp) handlePromoteSuperAdmin(emp);
-                    }}
-                    disabled={promoting === editingId}
-                    className="btn-secondary border-danger/30 text-danger"
-                  >
-                    {promoting === editingId ? "Promoting…" : "Make super admin"}
-                  </button>
-                </div>
+                {currentUser?.is_super_admin && (
+                  <div className="mt-5 border-t border-danger/20 pt-4">
+                    <p className="label mb-2 text-danger">Super admin access</p>
+                    <p className="mb-2 text-xs text-ink-400">
+                      Grants full access and makes this account invisible to every other admin —
+                      hidden from the employee list, exports, and everyone else's edit/delete/reset
+                      actions. Only you can grant or revoke this, on anyone's account.
+                    </p>
+                    <button
+                      onClick={() => {
+                        const emp = employees.find((e) => e.id === editingId);
+                        if (emp) handlePromoteSuperAdmin(emp);
+                      }}
+                      disabled={promoting === editingId}
+                      className="btn-secondary border-danger/30 text-danger"
+                    >
+                      {promoting === editingId ? "Promoting…" : "Make super admin"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
