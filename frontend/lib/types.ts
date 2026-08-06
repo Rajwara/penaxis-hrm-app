@@ -29,6 +29,9 @@ export interface UserOut {
   is_team_manager: boolean;
   is_super_admin: boolean;
   is_eligible_for_annual_leave: boolean;
+  is_on_probation_leave_policy: boolean;
+  probation_leave_accrued: number;
+  probation_leave_balance: number;
   annual_leave_accrued: number;
   annual_leave_carried_forward: number;
   annual_leave_balance: number;

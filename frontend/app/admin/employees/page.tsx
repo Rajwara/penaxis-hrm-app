@@ -540,7 +540,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Department</th>
                   <th className="pb-3 pr-4">Manager</th>
                   <th className="pb-3 pr-4">Joined</th>
-                  <th className="pb-3 pr-4">Annual balance</th>
+                  <th className="pb-3 pr-4">Leave balance</th>
                   <th className="pb-3 pr-4">Adjustment</th>
                   <th className="pb-3 pr-4">CNIC</th>
                   <th className="pb-3"></th>
@@ -610,9 +610,18 @@ export default function AdminEmployeesPage() {
                     </td>
                     <td className="py-3 pr-4 text-ink-600">{formatDate(emp.join_date)}</td>
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-ink-800">{emp.annual_leave_balance}</p>
-                      {!emp.is_eligible_for_annual_leave && (
-                        <p className="text-[10px] text-ink-400">not yet eligible</p>
+                      {emp.is_on_probation_leave_policy ? (
+                        <>
+                          <p className="font-medium text-ink-800">{emp.probation_leave_balance}</p>
+                          <p className="text-[10px] text-ink-400">casual (probation), usable now</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-ink-800">{emp.annual_leave_balance}</p>
+                          {!emp.is_eligible_for_annual_leave && (
+                            <p className="text-[10px] text-ink-400">not yet eligible</p>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="py-3 pr-4">
