@@ -19,6 +19,12 @@ export default function ProfilePage() {
   const [uploadingPic, setUploadingPic] = useState(false);
   const [uploadingCv, setUploadingCv] = useState(false);
   const [uploadingCnic, setUploadingCnic] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   const picInputRef = useRef<HTMLInputElement>(null);
   const cvInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +111,26 @@ export default function ProfilePage() {
     } finally {
       setUploadingPic(false);
       if (picInputRef.current) picInputRef.current.value = "";
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+    setChangingPassword(true);
+    try {
+      await api.post("/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setPasswordSuccess("Password updated.");
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (err) {
+      setPasswordError(apiErrorMessage(err, "Could not change your password"));
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -322,6 +348,49 @@ export default function ProfilePage() {
               <button onClick={() => setEditing(true)} className="btn-secondary mt-6 w-full">
                 Edit profile
               </button>
+
+              <button
+                onClick={() => setShowPasswordForm((s) => !s)}
+                className="btn-secondary mt-2 w-full"
+              >
+                {showPasswordForm ? "Cancel" : "Change password"}
+              </button>
+
+              {showPasswordForm && (
+                <form onSubmit={handleChangePassword} className="mt-3 space-y-3 border-t border-ink-100 pt-4">
+                  {passwordError && (
+                    <div className="rounded-lg bg-danger/10 px-3 py-2.5 text-sm text-danger">{passwordError}</div>
+                  )}
+                  {passwordSuccess && (
+                    <div className="rounded-lg bg-success/10 px-3 py-2.5 text-sm text-success">{passwordSuccess}</div>
+                  )}
+                  <div>
+                    <label className="label">Current password</label>
+                    <input
+                      type="password"
+                      required
+                      className="input"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">New password</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      className="input"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                    />
+                  </div>
+                  <button type="submit" disabled={changingPassword} className="btn-primary w-full">
+                    {changingPassword ? "Updating…" : "Update password"}
+                  </button>
+                </form>
+              )}
             </>
           ) : (
             <form onSubmit={handleSave} className="mt-6 space-y-4 border-t border-ink-100 pt-5">
