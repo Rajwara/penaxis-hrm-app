@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { BirthdayBanner } from "@/components/BirthdayBanner";
 import { api, apiErrorMessage, fileUrl } from "@/lib/api";
 import { UserOut, EmploymentType } from "@/lib/types";
 import { formatDate, todayInKarachi } from "@/lib/format";
@@ -273,6 +274,7 @@ export default function AdminEmployeesPage() {
 
   return (
     <AppShell title="Employees" subtitle="Add, remove, and manage your team" adminOnly>
+      <BirthdayBanner />
       <div className="mb-5 flex items-center justify-between">
         <p className="text-sm text-ink-400">{employees.length} active employee(s)</p>
         <div className="flex gap-2">

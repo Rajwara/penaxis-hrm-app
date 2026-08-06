@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine
-from .routers import auth, employees, attendance, leaves, reports
+from .routers import auth, employees, attendance, leaves, reports, notifications
 from . import seed
 from .storage import UPLOAD_DIR
 from .migrations import run_lightweight_migrations
@@ -33,6 +33,7 @@ app.include_router(employees.router)
 app.include_router(attendance.router)
 app.include_router(leaves.router)
 app.include_router(reports.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")

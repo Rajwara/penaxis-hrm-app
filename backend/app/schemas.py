@@ -45,6 +45,7 @@ class UserUpdate(BaseModel):
     years_experience: Optional[float] = None
     birthday: Optional[dt.date] = None
     skills: Optional[list[str]] = None
+    blood_group: Optional[str] = None
     manager_id: Optional[int] = None
     employment_type: Optional[EmploymentType] = None
     permanent_conversion_date: Optional[dt.date] = None
@@ -76,6 +77,7 @@ class UserOut(UserBase):
     years_experience: float = 0
     birthday: Optional[dt.date] = None
     skills: list[str] = []
+    blood_group: Optional[str] = None
     profile_picture_url: Optional[str] = None
     cv_url: Optional[str] = None
     cv_original_name: Optional[str] = None

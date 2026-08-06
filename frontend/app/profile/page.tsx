@@ -30,6 +30,7 @@ export default function ProfilePage() {
     years_experience: "0",
     birthday: "",
     skillsText: "",
+    blood_group: "",
   });
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function ProfilePage() {
       years_experience: String(user.years_experience ?? 0),
       birthday: user.birthday || "",
       skillsText: (user.skills || []).join(", "),
+      blood_group: user.blood_group || "",
     });
   }, [user]);
 
@@ -76,6 +78,7 @@ export default function ProfilePage() {
         years_experience: Number(form.years_experience) || 0,
         birthday: form.birthday || null,
         skills,
+        blood_group: form.blood_group || null,
       });
       await refreshUser();
       setEditing(false);
@@ -207,6 +210,10 @@ export default function ProfilePage() {
                   <dd className="text-ink-800">{user?.birthday ? formatDate(user.birthday) : "—"}</dd>
                 </div>
                 <div className="flex justify-between">
+                  <dt className="text-ink-400">Blood group</dt>
+                  <dd className="text-ink-800">{user?.blood_group || "—"}</dd>
+                </div>
+                <div className="flex justify-between">
                   <dt className="text-ink-400">Experience</dt>
                   <dd className="text-ink-800">{user?.years_experience || 0} yrs</dd>
                 </div>
@@ -335,6 +342,21 @@ export default function ProfilePage() {
                   value={form.birthday}
                   onChange={(e) => setForm({ ...form, birthday: e.target.value })}
                 />
+              </div>
+              <div>
+                <label className="label">Blood group</label>
+                <select
+                  className="input"
+                  value={form.blood_group}
+                  onChange={(e) => setForm({ ...form, blood_group: e.target.value })}
+                >
+                  <option value="">Not set</option>
+                  {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
+                    <option key={bg} value={bg}>
+                      {bg}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="label">Years of experience</label>

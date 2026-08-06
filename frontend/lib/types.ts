@@ -17,6 +17,7 @@ export interface UserOut {
   years_experience: number;
   birthday: string | null;
   skills: string[];
+  blood_group: string | null;
   profile_picture_url: string | null;
   cv_url: string | null;
   cv_original_name: string | null;

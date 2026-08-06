@@ -89,6 +89,7 @@ class User(Base):
 
     # Extended profile fields
     linkedin_url = Column(String, default="")
+    blood_group = Column(String, nullable=True)
     years_experience = Column(Float, default=0)
     birthday = Column(Date, nullable=True)
     skills_json = Column(Text, default="[]")
