@@ -78,6 +78,12 @@ class User(Base):
     leave_quota = Column(Float, default=0.0)  # manual adjustment on top of accrued annual leave
     is_active = Column(Integer, default=1)  # 1 active, 0 removed (soft delete)
     employment_type = Column(Enum(EmploymentType), default=EmploymentType.PERMANENT, nullable=False)
+    # Set for Contract/Probation employees: the date they're scheduled to
+    # convert to Permanent. Checked opportunistically (on login, and when an
+    # admin views the employee list) and auto-applied once the date arrives —
+    # there's no background scheduler in this app, so it's a lazy check
+    # rather than a cron job.
+    permanent_conversion_date = Column(Date, nullable=True)
     intern_feedback = Column(Text, nullable=True)
     intern_feedback_submitted_at = Column(DateTime, nullable=True)
 
@@ -218,6 +224,69 @@ class User(Base):
             - self.annual_leave_used_this_year,
             2,
         )
+
+    @property
+    def is_on_probation_leave_policy(self) -> bool:
+        """
+        Contract/Probation and Intern staff get a flat 1 day/month casual
+        leave allowance instead of the normal annual-leave scheme (which
+        they can't use anyway before 1 year, and Contract/Probation is
+        meant to be a shorter status than that). This is unaffected by the
+        annual-leave 1-year eligibility rule since it's a different leave
+        type (casual), not annual leave.
+        """
+        return self.employment_type in (EmploymentType.CONTRACT, EmploymentType.INTERN)
+
+    @property
+    def probation_leave_accrued(self) -> float:
+        """1 day for every full month elapsed since join_date, all-time (no annual reset —
+        Contract/Probation and internships are short, fixed-term statuses)."""
+        if not self.join_date:
+            return 0.0
+        today = dt.date.today()
+        months = (today.year - self.join_date.year) * 12 + (today.month - self.join_date.month)
+        if today.day < self.join_date.day:
+            months -= 1
+        return float(max(0, months))
+
+    @property
+    def probation_leave_used(self) -> float:
+        session = object_session(self)
+        if session is None:
+            return 0.0
+        rows = (
+            session.query(LeaveRequest)
+            .filter(
+                LeaveRequest.user_id == self.id,
+                LeaveRequest.leave_type == LeaveType.CASUAL,
+                LeaveRequest.status == LeaveStatus.APPROVED,
+            )
+            .all()
+        )
+        return sum(r.days for r in rows)
+
+    @property
+    def probation_leave_balance(self) -> float:
+        return round(self.probation_leave_accrued - self.probation_leave_used, 2)
+
+    def maybe_convert_to_permanent(self, db) -> bool:
+        """
+        If this is a Contract/Probation employee whose conversion date has
+        arrived, flip them to Permanent and persist it. Returns True if a
+        conversion happened. There's no background scheduler in this app,
+        so this is called opportunistically wherever it matters (login,
+        admin employee list) rather than on a timer.
+        """
+        if (
+            self.employment_type == EmploymentType.CONTRACT
+            and self.permanent_conversion_date is not None
+            and dt.date.today() >= self.permanent_conversion_date
+        ):
+            self.employment_type = EmploymentType.PERMANENT
+            db.add(self)
+            db.commit()
+            return True
+        return False
 
     attendances = relationship(
         "Attendance", back_populates="user", cascade="all, delete-orphan"

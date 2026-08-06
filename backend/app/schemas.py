@@ -47,6 +47,7 @@ class UserUpdate(BaseModel):
     skills: Optional[list[str]] = None
     manager_id: Optional[int] = None
     employment_type: Optional[EmploymentType] = None
+    permanent_conversion_date: Optional[dt.date] = None
     is_team_manager: Optional[bool] = None
     role: Optional[Role] = None
 
@@ -89,6 +90,10 @@ class UserOut(UserBase):
     annual_leave_accrued: float = 0
     annual_leave_carried_forward: float = 0
     annual_leave_balance: float = 0
+    permanent_conversion_date: Optional[dt.date] = None
+    is_on_probation_leave_policy: bool = False
+    probation_leave_accrued: float = 0
+    probation_leave_balance: float = 0
     employment_type: EmploymentType = EmploymentType.PERMANENT
     internship_end_date: Optional[dt.date] = None
     is_internship_completed: bool = False

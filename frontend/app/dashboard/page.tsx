@@ -8,6 +8,7 @@ import { AttendanceOut, LeaveOut } from "@/lib/types";
 import { formatTime, formatLiveClock, formatLiveDate } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
 import { InternshipCompletionBanner } from "@/components/InternshipCompletionBanner";
+import { InternshipCompletionModal } from "@/components/InternshipCompletionModal";
 
 function LiveClock() {
   const [now, setNow] = useState(new Date());
@@ -92,6 +93,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell title={`Welcome back, ${user?.name?.split(" ")[0]}`} subtitle="Here's your day at a glance">
+      <InternshipCompletionModal />
       <InternshipCompletionBanner />
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Punch clock - signature widget */}

@@ -45,7 +45,17 @@ def apply_leave(
                 status_code=400,
                 detail=f"Insufficient annual leave balance. You have {balance} day(s) accrued so far this year.",
             )
-    # Sick / casual / other / unpaid ("short leave") are not capped by the annual pool.
+    elif payload.leave_type == models.LeaveType.CASUAL and current_user.is_on_probation_leave_policy:
+        # Contract/Probation and Intern staff get a flat 1 day/month casual
+        # leave allowance instead of the normal pool.
+        balance = current_user.probation_leave_balance
+        if days > balance:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient casual leave balance. You have {balance} day(s) accrued so far "
+                "(1 day per completed month).",
+            )
+    # Sick / other / unpaid ("short leave") remain uncapped for everyone.
 
     leave = models.LeaveRequest(
         user_id=current_user.id,
@@ -153,6 +163,17 @@ def update_leave_status(
             raise HTTPException(
                 status_code=400,
                 detail="Employee no longer has sufficient annual leave balance",
+            )
+    if (
+        payload.status == models.LeaveStatus.APPROVED
+        and leave.leave_type == models.LeaveType.CASUAL
+        and employee is not None
+        and employee.is_on_probation_leave_policy
+    ):
+        if leave.days > employee.probation_leave_balance:
+            raise HTTPException(
+                status_code=400,
+                detail="Employee no longer has sufficient casual leave balance",
             )
 
     leave.status = payload.status

@@ -39,7 +39,10 @@ def list_employees(
         q = q.filter(
             (models.User.is_super_admin == False) | (models.User.id == admin.id)  # noqa: E712
         )
-    return q.order_by(models.User.id).all()
+    users = q.order_by(models.User.id).all()
+    for u in users:
+        u.maybe_convert_to_permanent(db)
+    return users
 
 
 @router.post("", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -162,6 +165,7 @@ def update_employee(
         updates.pop("position", None)
         updates.pop("manager_id", None)
         updates.pop("employment_type", None)
+        updates.pop("permanent_conversion_date", None)
         updates.pop("is_team_manager", None)
         updates.pop("role", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:

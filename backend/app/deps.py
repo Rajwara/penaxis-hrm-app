@@ -28,6 +28,7 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if user is None or not user.is_active:
         raise credentials_exception
+    user.maybe_convert_to_permanent(db)
     return user
 
 
