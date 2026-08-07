@@ -323,7 +323,11 @@ async def upload_cv(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.role != models.Role.ADMIN and current_user.id != user_id:
+    # Employees can always manage their own CV. Managing someone else's now
+    # requires explicit phone/CV access (super admin, or granted) rather
+    # than just any Admin role - consistent with the fact that regular
+    # HR/Admin can't even see whose CV exists otherwise.
+    if current_user.id != user_id and not _can_view_sensitive_info(current_user):
         raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -340,6 +344,31 @@ async def upload_cv(
     delete_upload(user.cv_filename)
     user.cv_filename = stored_name
     user.cv_original_name = file.filename
+    db.commit()
+    db.refresh(user)
+    return _to_out_redacted(user, current_user)
+
+
+@router.delete("/{user_id}/cv", response_model=schemas.UserOut)
+def delete_cv(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Removes an employee's CV entirely. Like CNIC delete, this always
+    requires explicit access (super admin, or specifically granted) - even
+    to delete your own, since it's a destructive action with no undo.
+    """
+    if not _can_view_sensitive_info(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    delete_upload(user.cv_filename)
+    user.cv_filename = None
+    user.cv_original_name = None
     db.commit()
     db.refresh(user)
     return _to_out_redacted(user, current_user)

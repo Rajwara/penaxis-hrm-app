@@ -298,6 +298,29 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  async function handleAdminCvReplace(id: number, file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      await api.post(`/employees/${id}/cv`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not upload CV"));
+    }
+  }
+
+  async function handleAdminCvDelete(id: number, name: string) {
+    if (!confirm(`Delete ${name}'s CV? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/employees/${id}/cv`);
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not delete CV"));
+    }
+  }
+
   async function handleManagerFlagToggle(id: number, value: boolean) {
     await api.patch(`/employees/${id}`, { is_team_manager: value });
     await load();
@@ -767,6 +790,26 @@ export default function AdminEmployeesPage() {
                           </a>
                         ) : (
                           <span className="text-xs text-ink-400">Not submitted</span>
+                        )}
+                        <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
+                          {emp.cv_url ? "Replace" : "Upload"}
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleAdminCvReplace(emp.id, e.target.files[0]);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                        {emp.cv_url && (
+                          <button
+                            onClick={() => handleAdminCvDelete(emp.id, emp.name)}
+                            className="mt-1 block text-[10px] font-semibold text-danger hover:underline"
+                          >
+                            Delete
+                          </button>
                         )}
                       </td>
                     )}
