@@ -81,16 +81,27 @@ export default function LeavesPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <form onSubmit={handleSubmit} className="card space-y-4 lg:col-span-1">
           <div>
-            <p className="label mb-0">Annual leave balance</p>
-            <p className="font-display text-2xl font-bold text-ink-900">
-              {user?.annual_leave_balance ?? 0} days
+            <p className="label mb-0">
+              {user?.is_on_probation_leave_policy ? "Casual leave balance" : "Annual leave balance"}
             </p>
-            {user && (user.annual_leave_carried_forward ?? 0) > 0 && (
+            <p className="font-display text-2xl font-bold text-ink-900">
+              {user?.is_on_probation_leave_policy
+                ? user?.probation_leave_balance ?? 0
+                : user?.annual_leave_balance ?? 0}{" "}
+              days
+            </p>
+            {user?.is_on_probation_leave_policy && (
               <p className="mt-1 text-xs text-ink-400">
-                Includes {user.annual_leave_carried_forward} carried over from last year
+                Accruing at 1 day/month, usable now. Annual leave is accruing separately in the
+                background and unlocks after 1 year.
               </p>
             )}
-            {user && !user.is_eligible_for_annual_leave && (
+            {!user?.is_on_probation_leave_policy && (user?.annual_leave_carried_forward ?? 0) > 0 && (
+              <p className="mt-1 text-xs text-ink-400">
+                Includes {user?.annual_leave_carried_forward} carried over from last year
+              </p>
+            )}
+            {!user?.is_on_probation_leave_policy && user && !user.is_eligible_for_annual_leave && (
               <p className="mt-1 text-xs text-ink-400">
                 Accruing at 1.5 days/month — usable once you complete 1 year with the company.
                 Sick and casual leave are available now.
