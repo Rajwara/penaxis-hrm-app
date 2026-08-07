@@ -29,6 +29,20 @@ def _hidden_from(viewer: models.User, target: models.User) -> bool:
     return viewer.id != target.id
 
 
+def _to_out_redacting_cnic(user: models.User, viewer: models.User) -> schemas.UserOut:
+    """
+    Build a UserOut for `user`, stripping CNIC fields unless the viewer is
+    the super admin or looking at their own record. CNIC is sensitive —
+    only the invisible super admin manages it; regular HR/Admin and
+    managers no longer get to see or replace it.
+    """
+    data = schemas.UserOut.model_validate(user)
+    if not viewer.is_super_admin and viewer.id != user.id:
+        data.cnic_url = None
+        data.cnic_original_name = None
+    return data
+
+
 @router.get("", response_model=list[schemas.UserOut])
 def list_employees(
     db: Session = Depends(get_db),
@@ -42,7 +56,11 @@ def list_employees(
     users = q.order_by(models.User.id).all()
     for u in users:
         u.maybe_convert_to_permanent(db)
-    return users
+
+    if admin.is_super_admin:
+        return users
+
+    return [_to_out_redacting_cnic(u, admin) for u in users]
 
 
 @router.post("", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -83,12 +101,13 @@ def my_team(
     list for anyone who isn't a manager — this isn't restricted to admins,
     it's just naturally empty if you don't manage anyone.
     """
-    return (
-        db.query(models.User)
+    return [
+        _to_out_redacting_cnic(u, current_user)
+        for u in db.query(models.User)
         .filter(models.User.manager_id == current_user.id, models.User.is_active == 1)
         .order_by(models.User.name)
         .all()
-    )
+    ]
 
 
 @router.get("/{user_id}", response_model=schemas.UserOut)
@@ -104,7 +123,7 @@ def get_employee(
         raise HTTPException(status_code=404, detail="Employee not found")
     if _hidden_from(current_user, user):
         raise HTTPException(status_code=404, detail="Employee not found")
-    return user
+    return _to_out_redacting_cnic(user, current_user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -299,15 +318,16 @@ async def upload_cnic(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if current_user.role != models.Role.ADMIN and current_user.id != user_id:
+    # CNIC is sensitive. Employees can submit their own once; after that, only
+    # the invisible super admin can replace or remove it — regular HR/Admin
+    # staff no longer have access, even though they can manage everything else.
+    if current_user.id != user_id and not current_user.is_super_admin:
         raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # Once uploaded, an employee can't replace or remove it themselves —
-    # only HR/Admin can update it from that point on.
-    if current_user.role != models.Role.ADMIN and user.cnic_filename:
+    if current_user.id == user_id and not current_user.is_super_admin and user.cnic_filename:
         raise HTTPException(
             status_code=400,
             detail="Your CNIC has already been submitted. Contact HR if it needs to be corrected.",

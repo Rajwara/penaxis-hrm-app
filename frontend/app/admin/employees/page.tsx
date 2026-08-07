@@ -547,7 +547,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Joined</th>
                   <th className="pb-3 pr-4">Leave balance</th>
                   <th className="pb-3 pr-4">Adjustment</th>
-                  <th className="pb-3 pr-4">CNIC</th>
+                  {currentUser?.is_super_admin && <th className="pb-3 pr-4">CNIC</th>}
                   <th className="pb-3"></th>
                 </tr>
               </thead>
@@ -652,30 +652,34 @@ export default function AdminEmployeesPage() {
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      {emp.cnic_url ? (
-                        <a
-                          href={fileUrl(emp.cnic_url) || "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-medium text-teal-600 hover:underline"
-                        >
-                          Download
-                        </a>
-                      ) : (
-                        <span className="text-xs text-ink-400">Not submitted</span>
+                      {currentUser?.is_super_admin && (
+                        <>
+                          {emp.cnic_url ? (
+                            <a
+                              href={fileUrl(emp.cnic_url) || "#"}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-medium text-teal-600 hover:underline"
+                            >
+                              Download
+                            </a>
+                          ) : (
+                            <span className="text-xs text-ink-400">Not submitted</span>
+                          )}
+                          <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
+                            {emp.cnic_url ? "Replace" : "Upload"}
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.webp"
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleAdminCnicReplace(emp.id, e.target.files[0]);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                        </>
                       )}
-                      <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
-                        {emp.cnic_url ? "Replace" : "Upload"}
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.webp"
-                          className="hidden"
-                          onChange={(e) => {
-                            if (e.target.files?.[0]) handleAdminCnicReplace(emp.id, e.target.files[0]);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex justify-end gap-3">
