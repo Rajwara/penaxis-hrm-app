@@ -25,6 +25,7 @@ export default function AdminEmployeesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
+    email: "",
     phone: "",
     department: "",
     position: "",
@@ -136,6 +137,7 @@ export default function AdminEmployeesPage() {
     setPasswordMessage("");
     setEditForm({
       name: emp.name,
+      email: emp.email,
       phone: emp.phone || "",
       department: emp.department,
       position: emp.position,
@@ -711,6 +713,15 @@ export default function AdminEmployeesPage() {
                       className="input"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input
+                      type="email"
+                      className="input"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                     />
                   </div>
                   <div>

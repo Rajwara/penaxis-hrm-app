@@ -168,8 +168,18 @@ def update_employee(
         updates.pop("permanent_conversion_date", None)
         updates.pop("is_team_manager", None)
         updates.pop("role", None)
+        updates.pop("email", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:
         raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
+
+    if "email" in updates and updates["email"] != user.email:
+        existing = (
+            db.query(models.User)
+            .filter(models.User.email == updates["email"], models.User.id != user_id)
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="This email is already in use")
 
     for field, value in updates.items():
         setattr(user, field, value)  # skills uses the model's property setter
