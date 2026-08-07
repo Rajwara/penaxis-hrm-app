@@ -78,12 +78,6 @@ export default function LoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
-
-        <div className="mt-6 rounded-xl2 border border-white/10 bg-white/5 p-4 text-xs text-ink-100/60">
-          <p className="mb-1 font-semibold text-ink-100/80">Demo accounts</p>
-          <p>HR/Admin: admin@company.com / admin123</p>
-          <p>Employee: employee@company.com / employee123</p>
-        </div>
       </div>
     </div>
   );
