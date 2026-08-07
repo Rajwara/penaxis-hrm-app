@@ -13,6 +13,8 @@ const employeeLinks = [
 ];
 
 const adminLinks = [
+  { href: "/dashboard", label: "Dashboard", icon: "grid" },
+  { href: "/attendance", label: "My Attendance", icon: "clock" },
   { href: "/admin/employees", label: "Employees", icon: "users" },
   { href: "/admin/attendance", label: "Team Attendance", icon: "team-check" },
   { href: "/admin/leaves", label: "Leave requests", icon: "calendar" },
