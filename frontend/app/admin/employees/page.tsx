@@ -261,6 +261,16 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  async function handleAdminCnicDelete(id: number, name: string) {
+    if (!confirm(`Delete ${name}'s CNIC document? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/employees/${id}/cnic`);
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not delete CNIC"));
+    }
+  }
+
   async function handleManagerFlagToggle(id: number, value: boolean) {
     await api.patch(`/employees/${id}`, { is_team_manager: value });
     await load();
@@ -702,6 +712,14 @@ export default function AdminEmployeesPage() {
                             }}
                           />
                         </label>
+                        {emp.cnic_url && (
+                          <button
+                            onClick={() => handleAdminCnicDelete(emp.id, emp.name)}
+                            className="mt-1 block text-[10px] font-semibold text-danger hover:underline"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     )}
                     <td className="py-3 text-right">

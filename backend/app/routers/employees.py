@@ -372,6 +372,31 @@ async def upload_cnic(
     return user
 
 
+@router.delete("/{user_id}/cnic", response_model=schemas.UserOut)
+def delete_cnic(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Removes an employee's CNIC entirely. Unlike upload/replace, this is
+    never self-service - only someone with explicit CNIC access (super
+    admin, or specifically granted) can delete it, same as who can view it.
+    """
+    if not _can_manage_cnic(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    delete_upload(user.cnic_filename)
+    user.cnic_filename = None
+    user.cnic_original_name = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.post("/{user_id}/promote-super-admin", response_model=schemas.UserOut)
 def promote_super_admin(
     user_id: int,
