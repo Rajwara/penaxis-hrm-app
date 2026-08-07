@@ -49,12 +49,16 @@ def apply_leave(
         leave_type = payload.leave_type
 
     if leave_type == models.LeaveType.ANNUAL:
-        if not current_user.is_eligible_for_annual_leave:
+        # Short leave is a small, everyday convenience and is always allowed
+        # regardless of the 1-year annual-leave eligibility rule, as long as
+        # there's accrued balance to cover the 0.5 day. Only a full annual
+        # leave request is blocked before 1 year.
+        if not payload.is_short_leave and not current_user.is_eligible_for_annual_leave:
             raise HTTPException(
                 status_code=400,
-                detail="Annual leave (including short leave) is available once you've completed "
-                "one year with the company. Sick, casual, or other short leave is still "
-                "available in the meantime.",
+                detail="Annual leave is available once you've completed one year with the "
+                "company. Short leave, sick, casual, or other leave is still available "
+                "in the meantime.",
             )
         balance = current_user.annual_leave_balance
         if days > balance:
