@@ -16,6 +16,7 @@ const adminLinks = [
   { href: "/admin/employees", label: "Employees", icon: "users" },
   { href: "/admin/attendance", label: "Team Attendance", icon: "team-check" },
   { href: "/admin/leaves", label: "Leave requests", icon: "calendar" },
+  { href: "/admin/birthdays", label: "Birthdays", icon: "cake" },
   { href: "/profile", label: "My profile", icon: "user" },
 ];
 
@@ -66,6 +67,16 @@ function Icon({ name }: { name: string }) {
           <circle cx="8" cy="8" r="3.2" />
           <path d="M2.5 19c0-3.3 2.6-5 5.5-5s5.5 1.7 5.5 5" strokeLinecap="round" />
           <path d="M15 13.5l2 2 3.5-4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "cake":
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M4 21v-7a2 2 0 012-2h12a2 2 0 012 2v7" strokeLinecap="round" />
+          <path d="M4 21h16" strokeLinecap="round" />
+          <path d="M8 12V9M12 12V9M16 12V9" strokeLinecap="round" />
+          <path d="M8 5.5c0-1 .7-1.3.7-2.2S8 1.5 8 1.5M12 5.5c0-1 .7-1.3.7-2.2S12 1.5 12 1.5M16 5.5c0-1 .7-1.3.7-2.2S16 1.5 16 1.5" strokeLinecap="round" />
+          <path d="M4 17c1.2 0 1.2-1 2.4-1s1.2 1 2.4 1 1.2-1 2.4-1 1.2 1 2.4 1 1.2-1 2.4-1 1.2 1 2.4 1" strokeLinecap="round" />
         </svg>
       );
     default:
