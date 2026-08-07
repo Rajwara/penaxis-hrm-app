@@ -33,18 +33,30 @@ def _can_manage_cnic(user: models.User) -> bool:
     return bool(user.is_super_admin or user.can_view_cnic)
 
 
-def _to_out_redacting_cnic(user: models.User, viewer: models.User) -> schemas.UserOut:
+def _can_view_sensitive_info(user: models.User) -> bool:
+    return bool(user.is_super_admin or user.can_view_sensitive_info)
+
+
+def _to_out_redacted(user: models.User, viewer: models.User) -> schemas.UserOut:
     """
-    Build a UserOut for `user`, stripping CNIC fields unless the viewer has
-    explicit CNIC access (super admin or granted can_view_cnic) or is
-    looking at their own record. CNIC is sensitive — by default only the
-    invisible super admin manages it; specific people can be granted access
-    individually, but regular HR/Admin and managers don't get it by default.
+    Build a UserOut for `user` as seen by `viewer`, stripping fields the
+    viewer isn't specifically allowed to see. Two independent grants:
+    - CNIC (cnic_url/cnic_original_name): super admin or can_view_cnic
+    - Phone number and CV (phone, cv_url/cv_original_name): super admin or
+      can_view_sensitive_info
+    Only the super admin can grant either, and they're granted separately -
+    someone can have one without the other. Everyone can always see their
+    own full record regardless of these flags.
     """
     data = schemas.UserOut.model_validate(user)
-    if not _can_manage_cnic(viewer) and viewer.id != user.id:
+    is_self = viewer.id == user.id
+    if not _can_manage_cnic(viewer) and not is_self:
         data.cnic_url = None
         data.cnic_original_name = None
+    if not _can_view_sensitive_info(viewer) and not is_self:
+        data.phone = ""
+        data.cv_url = None
+        data.cv_original_name = None
     return data
 
 
@@ -62,14 +74,14 @@ def list_employees(
     for u in users:
         u.maybe_convert_to_permanent(db)
 
-    return [_to_out_redacting_cnic(u, admin) for u in users]
+    return [_to_out_redacted(u, admin) for u in users]
 
 
 @router.post("", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def create_employee(
     payload: schemas.UserCreate,
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_admin),
 ):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
@@ -92,7 +104,7 @@ def create_employee(
         existing.is_active = 1
         db.commit()
         db.refresh(existing)
-        return existing
+        return _to_out_redacted(existing, admin)
     user = models.User(
         name=payload.name,
         email=payload.email,
@@ -109,7 +121,7 @@ def create_employee(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
 
 
 @router.get("/my-team", response_model=list[schemas.UserOut])
@@ -123,7 +135,7 @@ def my_team(
     it's just naturally empty if you don't manage anyone.
     """
     return [
-        _to_out_redacting_cnic(u, current_user)
+        _to_out_redacted(u, current_user)
         for u in db.query(models.User)
         .filter(models.User.manager_id == current_user.id, models.User.is_active == 1)
         .order_by(models.User.name)
@@ -144,7 +156,7 @@ def get_employee(
         raise HTTPException(status_code=404, detail="Employee not found")
     if _hidden_from(current_user, user):
         raise HTTPException(status_code=404, detail="Employee not found")
-    return _to_out_redacting_cnic(user, current_user)
+    return _to_out_redacted(user, current_user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -171,7 +183,7 @@ def update_leave_quota(
     user_id: int,
     payload: schemas.LeaveQuotaUpdate,
     db: Session = Depends(get_db),
-    _admin: models.User = Depends(require_admin),
+    admin: models.User = Depends(require_admin),
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -179,7 +191,7 @@ def update_leave_quota(
     user.leave_quota = payload.leave_quota
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
 
 
 @router.post("/{user_id}/reset-password", status_code=status.HTTP_204_NO_CONTENT)
@@ -244,7 +256,7 @@ def update_employee(
         setattr(user, field, value)  # skills uses the model's property setter
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.post("/{user_id}/internship-feedback", response_model=schemas.UserOut)
@@ -273,7 +285,7 @@ def submit_internship_feedback(
     user.intern_feedback_submitted_at = dt.datetime.utcnow()
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.post("/{user_id}/profile-picture", response_model=schemas.UserOut)
@@ -301,7 +313,7 @@ async def upload_profile_picture(
     user.profile_picture = stored_name
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.post("/{user_id}/cv", response_model=schemas.UserOut)
@@ -330,7 +342,7 @@ async def upload_cv(
     user.cv_original_name = file.filename
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.post("/{user_id}/cnic", response_model=schemas.UserOut)
@@ -369,7 +381,7 @@ async def upload_cnic(
     user.cnic_original_name = file.filename
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.delete("/{user_id}/cnic", response_model=schemas.UserOut)
@@ -394,7 +406,7 @@ def delete_cnic(
     user.cnic_original_name = None
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, current_user)
 
 
 @router.post("/{user_id}/promote-super-admin", response_model=schemas.UserOut)
@@ -417,7 +429,7 @@ def promote_super_admin(
     user.is_super_admin = True
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
 
 
 @router.post("/{user_id}/demote-super-admin", response_model=schemas.UserOut)
@@ -432,7 +444,7 @@ def demote_super_admin(
     user.is_super_admin = False
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
 
 
 @router.post("/{user_id}/grant-cnic-access", response_model=schemas.UserOut)
@@ -454,7 +466,7 @@ def grant_cnic_access(
     user.can_view_cnic = True
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
 
 
 @router.post("/{user_id}/revoke-cnic-access", response_model=schemas.UserOut)
@@ -469,7 +481,43 @@ def revoke_cnic_access(
     user.can_view_cnic = False
     db.commit()
     db.refresh(user)
-    return user
+    return _to_out_redacted(user, admin)
+
+
+@router.post("/{user_id}/grant-sensitive-access", response_model=schemas.UserOut)
+def grant_sensitive_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    """
+    Grants a specific Admin/HR user the ability to see phone numbers and
+    CVs for everyone. Independent of CNIC access and super-admin status -
+    someone can be granted one, both, or neither. Only the super admin can
+    grant or revoke this, per person.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_sensitive_info = True
+    db.commit()
+    db.refresh(user)
+    return _to_out_redacted(user, admin)
+
+
+@router.post("/{user_id}/revoke-sensitive-access", response_model=schemas.UserOut)
+def revoke_sensitive_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_sensitive_info = False
+    db.commit()
+    db.refresh(user)
+    return _to_out_redacted(user, admin)
 
 
 def _generate_password(length: int = 10) -> str:

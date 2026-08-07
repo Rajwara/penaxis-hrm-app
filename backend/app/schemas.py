@@ -96,6 +96,7 @@ class UserOut(UserBase):
     is_team_manager: bool = False
     is_super_admin: bool = False
     can_view_cnic: bool = False
+    can_view_sensitive_info: bool = False
     is_eligible_for_annual_leave: bool = False
     annual_leave_accrued: float = 0
     annual_leave_carried_forward: float = 0

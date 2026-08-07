@@ -108,6 +108,7 @@ class User(Base):
     manager = relationship("User", remote_side=[id], backref="reports")
     is_team_manager = Column(Boolean, default=False, nullable=False)  # explicit HR-granted manager status
     can_view_cnic = Column(Boolean, default=False, nullable=False)  # super-admin-granted CNIC access, separate from role
+    can_view_sensitive_info = Column(Boolean, default=False, nullable=False)  # super-admin-granted phone/CV access
 
     @property
     def manager_name(self) -> str | None:
