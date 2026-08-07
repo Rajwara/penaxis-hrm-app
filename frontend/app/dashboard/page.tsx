@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 import { api, apiErrorMessage } from "@/lib/api";
 import { AttendanceOut, LeaveOut } from "@/lib/types";
-import { formatTime, formatLiveClock, formatLiveDate } from "@/lib/format";
+import { formatTime, formatLiveClock, formatLiveDate, parseAsUTC } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
 import { InternshipCompletionBanner } from "@/components/InternshipCompletionBanner";
 import { InternshipCompletionModal } from "@/components/InternshipCompletionModal";
@@ -28,8 +28,8 @@ function totalHoursToday(sessions: AttendanceOut[]): string {
   let ms = 0;
   for (const s of sessions) {
     if (s.check_in) {
-      const end = s.check_out ? new Date(s.check_out) : new Date();
-      ms += end.getTime() - new Date(s.check_in).getTime();
+      const end = s.check_out ? parseAsUTC(s.check_out) : new Date();
+      ms += end.getTime() - parseAsUTC(s.check_in).getTime();
     }
   }
   return (ms / (1000 * 60 * 60)).toFixed(1);

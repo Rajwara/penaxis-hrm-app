@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { AttendanceOutWithUser, UserOut } from "@/lib/types";
-import { formatDate, formatTime, todayInKarachi } from "@/lib/format";
+import { formatDate, formatTime, todayInKarachi, parseAsUTC } from "@/lib/format";
 
 function hoursWorked(checkIn: string | null, checkOut: string | null): string {
   if (!checkIn || !checkOut) return "-";
-  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  const ms = parseAsUTC(checkOut).getTime() - parseAsUTC(checkIn).getTime();
   if (ms <= 0) return "-";
   const hrs = ms / (1000 * 60 * 60);
   return `${hrs.toFixed(1)}h`;

@@ -1,9 +1,11 @@
+const DISPLAY_TZ = "Asia/Karachi";
+
 // The backend stores and returns timestamps as naive UTC (no timezone suffix).
 // We explicitly treat them as UTC here, then render everything in Asia/Karachi
 // so times are correct and consistent regardless of the viewer's device settings.
-const DISPLAY_TZ = "Asia/Karachi";
-
-function parseAsUTC(dateTimeStr: string): Date {
+// Exported so other places doing time-math (not just display formatting) on
+// these raw timestamps parse them the same correct way.
+export function parseAsUTC(dateTimeStr: string): Date {
   const hasTzInfo = /[Zz]|[+-]\d{2}:?\d{2}$/.test(dateTimeStr);
   return new Date(hasTzInfo ? dateTimeStr : `${dateTimeStr}Z`);
 }
