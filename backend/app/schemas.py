@@ -132,6 +132,7 @@ class LeaveCreate(BaseModel):
     end_date: dt.date
     leave_type: LeaveType = LeaveType.ANNUAL
     reason: str = ""
+    is_short_leave: bool = False
 
 
 class LeaveStatusUpdate(BaseModel):
@@ -149,6 +150,7 @@ class LeaveOut(BaseModel):
     reason: str
     status: LeaveStatus
     days: float
+    is_short_leave: bool = False
     created_at: dt.datetime
     decided_at: Optional[dt.datetime] = None
 

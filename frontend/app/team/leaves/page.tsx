@@ -96,7 +96,9 @@ export default function TeamLeavesPage() {
                     <td className="py-3 pr-4 text-ink-600">
                       {formatDate(lv.start_date)} – {formatDate(lv.end_date)}
                     </td>
-                    <td className="py-3 pr-4 capitalize text-ink-600">{lv.leave_type}</td>
+                    <td className="py-3 pr-4 capitalize text-ink-600">
+                      {lv.is_short_leave ? "Short Leave" : lv.leave_type}
+                    </td>
                     <td className="py-3 pr-4 text-ink-600">{lv.days}</td>
                     <td className="max-w-[160px] truncate py-3 pr-4 text-ink-600">{lv.reason}</td>
                     <td className="py-3 pr-4 text-ink-400">{formatDateTime(lv.created_at)}</td>

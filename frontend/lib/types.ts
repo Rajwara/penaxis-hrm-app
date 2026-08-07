@@ -68,6 +68,7 @@ export interface LeaveOut {
   reason: string;
   status: LeaveStatus;
   days: number;
+  is_short_leave: boolean;
   created_at: string;
   decided_at: string | null;
 }

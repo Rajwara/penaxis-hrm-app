@@ -8,10 +8,13 @@ import { LeaveOut, LeaveType } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
 
-const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
+type LeaveTypeSelection = LeaveType | "short";
+
+const LEAVE_TYPES: { value: LeaveTypeSelection; label: string }[] = [
   { value: "annual", label: "Annual" },
   { value: "sick", label: "Sick" },
   { value: "casual", label: "Casual" },
+  { value: "short", label: "Short Leave (0.5 day)" },
   { value: "unpaid", label: "Unpaid" },
   { value: "other", label: "Other" },
 ];
@@ -22,7 +25,7 @@ export default function LeavesPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [leaveType, setLeaveType] = useState<LeaveType>("sick");
+  const [leaveType, setLeaveType] = useState<LeaveTypeSelection>("sick");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -52,11 +55,13 @@ export default function LeavesPage() {
     setSuccess("");
     setSubmitting(true);
     try {
+      const isShort = leaveType === "short";
       await api.post("/leaves", {
         start_date: startDate,
-        end_date: endDate,
-        leave_type: leaveType,
+        end_date: isShort ? startDate : endDate,
+        leave_type: isShort ? "other" : (leaveType as LeaveType),
         reason,
+        is_short_leave: isShort,
       });
       setSuccess("Leave request submitted.");
       setStartDate("");
@@ -135,11 +140,15 @@ export default function LeavesPage() {
               <input
                 type="date"
                 required
-                value={endDate}
+                disabled={leaveType === "short"}
+                value={leaveType === "short" ? startDate : endDate}
                 min={startDate || undefined}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="input"
+                className="input disabled:bg-ink-50 disabled:text-ink-400"
               />
+              {leaveType === "short" && (
+                <p className="mt-1 text-xs text-ink-400">Short leave is always a single day.</p>
+              )}
             </div>
           </div>
 
@@ -184,7 +193,9 @@ export default function LeavesPage() {
                       <td className="py-3 pr-4 text-ink-800">
                         {formatDate(lv.start_date)} – {formatDate(lv.end_date)}
                       </td>
-                      <td className="py-3 pr-4 capitalize text-ink-600">{lv.leave_type}</td>
+                      <td className="py-3 pr-4 capitalize text-ink-600">
+                        {lv.is_short_leave ? "Short Leave" : lv.leave_type}
+                      </td>
                       <td className="py-3 pr-4 text-ink-600">{lv.days}</td>
                       <td className="max-w-[180px] truncate py-3 pr-4 text-ink-600">{lv.reason}</td>
                       <td className="py-3">

@@ -30,14 +30,31 @@ def apply_leave(
 ):
     if payload.end_date < payload.start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
-    days = _business_days(payload.start_date, payload.end_date)
 
-    if payload.leave_type == models.LeaveType.ANNUAL:
+    if payload.is_short_leave:
+        if payload.start_date != payload.end_date:
+            raise HTTPException(
+                status_code=400, detail="Short leave can only be requested for a single day"
+            )
+        days = 0.5
+        # Draws from whichever pool the employee actually uses day-to-day —
+        # same rule as a normal leave request of that type.
+        leave_type = (
+            models.LeaveType.CASUAL
+            if current_user.is_on_probation_leave_policy
+            else models.LeaveType.ANNUAL
+        )
+    else:
+        days = _business_days(payload.start_date, payload.end_date)
+        leave_type = payload.leave_type
+
+    if leave_type == models.LeaveType.ANNUAL:
         if not current_user.is_eligible_for_annual_leave:
             raise HTTPException(
                 status_code=400,
-                detail="Annual leave is available once you've completed one year with the company. "
-                "Sick, casual, or other short leave is still available in the meantime.",
+                detail="Annual leave (including short leave) is available once you've completed "
+                "one year with the company. Sick, casual, or other short leave is still "
+                "available in the meantime.",
             )
         balance = current_user.annual_leave_balance
         if days > balance:
@@ -45,7 +62,7 @@ def apply_leave(
                 status_code=400,
                 detail=f"Insufficient annual leave balance. You have {balance} day(s) accrued so far this year.",
             )
-    elif payload.leave_type == models.LeaveType.CASUAL and current_user.is_on_probation_leave_policy:
+    elif leave_type == models.LeaveType.CASUAL and current_user.is_on_probation_leave_policy:
         # Contract/Probation and Intern staff get a flat 1 day/month casual
         # leave allowance instead of the normal pool.
         balance = current_user.probation_leave_balance
@@ -61,9 +78,10 @@ def apply_leave(
         user_id=current_user.id,
         start_date=payload.start_date,
         end_date=payload.end_date,
-        leave_type=payload.leave_type,
+        leave_type=leave_type,
         reason=payload.reason,
         days=days,
+        is_short_leave=payload.is_short_leave,
     )
     db.add(leave)
     db.commit()

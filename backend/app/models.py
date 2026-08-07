@@ -324,6 +324,12 @@ class LeaveRequest(Base):
     reason = Column(Text, default="")
     status = Column(Enum(LeaveStatus), default=LeaveStatus.PENDING)
     days = Column(Float, default=1.0)
+    # Display-only flag: a short leave still draws from the employee's real
+    # underlying pool (annual or probation/casual, same as normal), it's
+    # just always exactly 0.5 days and always a single day. Deliberately not
+    # a new LeaveType enum value — Postgres enums can't safely accept new
+    # members on an existing database without extra migration handling.
+    is_short_leave = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
     decided_at = Column(DateTime, nullable=True)
     decided_by = Column(Integer, nullable=True)

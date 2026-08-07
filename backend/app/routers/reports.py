@@ -170,7 +170,7 @@ def export_employees_excel(
         ws3.append([
             lv.user.name,
             lv.user.department,
-            lv.leave_type.value,
+            "Short Leave" if lv.is_short_leave else lv.leave_type.value,
             lv.start_date.isoformat(),
             lv.end_date.isoformat(),
             lv.days,
