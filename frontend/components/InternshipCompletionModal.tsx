@@ -131,11 +131,10 @@ export function InternshipCompletionModal() {
         </div>
 
         <p className="relative mt-5 font-display text-2xl font-extrabold text-ink-900">
-          Congratulations, {user.name.split(" ")[0]}! 🎉
+          Internship completed, {user.name.split(" ")[0]}! 🎉
         </p>
         <p className="relative mt-2 text-sm leading-relaxed text-ink-600">
-          Your internship at Penaxis has been completed. We hope you had a great experience
-          here — thank you for everything you brought to the team.
+          Hope you had a good time at Penaxis. Wish you the best of luck for your future!
         </p>
 
         <button onClick={dismiss} className="btn-primary relative mt-6 w-full">

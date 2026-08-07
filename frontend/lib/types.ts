@@ -38,6 +38,7 @@ export interface UserOut {
   annual_leave_balance: number;
   employment_type: EmploymentType;
   internship_end_date: string | null;
+  internship_end_date_override: string | null;
   is_internship_completed: boolean;
   needs_internship_feedback: boolean;
   intern_feedback: string | null;

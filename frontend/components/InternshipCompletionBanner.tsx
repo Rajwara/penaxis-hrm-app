@@ -33,11 +33,12 @@ export function InternshipCompletionBanner() {
         <span className="text-2xl">🎓</span>
         <div className="flex-1">
           <p className="font-display text-lg font-bold text-ink-900">
-            Your internship at Penaxis is complete!
+            Internship completed!
           </p>
           <p className="mt-1 text-sm text-ink-600">
-            Congratulations on finishing your 3 months with us. We'd love to hear how it went —
-            your thoughts help us make the program better for the next intern.
+            Hope you had a good time at Penaxis — wish you the best of luck for your future! We'd
+            love to hear how it went, too — your thoughts help us make the program better for the
+            next intern.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">

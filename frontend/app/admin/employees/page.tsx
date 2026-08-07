@@ -32,6 +32,7 @@ export default function AdminEmployeesPage() {
     position: "",
     role: "employee" as "employee" | "admin",
     employment_type: "permanent" as EmploymentType,
+    internship_end_date_override: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
@@ -144,6 +145,7 @@ export default function AdminEmployeesPage() {
       position: emp.position,
       role: emp.role,
       employment_type: emp.employment_type,
+      internship_end_date_override: emp.internship_end_date_override || "",
     });
   }
 
@@ -218,7 +220,10 @@ export default function AdminEmployeesPage() {
     setSavingEdit(true);
     setEditError("");
     try {
-      await api.patch(`/employees/${editingId}`, editForm);
+      await api.patch(`/employees/${editingId}`, {
+        ...editForm,
+        internship_end_date_override: editForm.internship_end_date_override || null,
+      });
       setEditingId(null);
       await load();
     } catch (err) {
@@ -793,6 +798,23 @@ export default function AdminEmployeesPage() {
                       <option value="intern">Intern (3-month period)</option>
                     </select>
                   </div>
+                  {editForm.employment_type === "intern" && (
+                    <div>
+                      <label className="label">Internship end date (override)</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={editForm.internship_end_date_override}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, internship_end_date_override: e.target.value })
+                        }
+                      />
+                      <p className="mt-1 text-xs text-ink-400">
+                        Leave blank to use the standard 3 months from join date. Set this for early
+                        exits or extensions — the completion notification uses this date instead.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex gap-2">
                   <button onClick={handleEditSave} disabled={savingEdit} className="btn-primary">

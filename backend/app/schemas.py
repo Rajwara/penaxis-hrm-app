@@ -52,6 +52,7 @@ class UserUpdate(BaseModel):
     permanent_conversion_date: Optional[dt.date] = None
     is_team_manager: Optional[bool] = None
     role: Optional[Role] = None
+    internship_end_date_override: Optional[dt.date] = None
 
 
 class LeaveQuotaUpdate(BaseModel):
@@ -105,6 +106,7 @@ class UserOut(UserBase):
     probation_leave_balance: float = 0
     employment_type: EmploymentType = EmploymentType.PERMANENT
     internship_end_date: Optional[dt.date] = None
+    internship_end_date_override: Optional[dt.date] = None
     is_internship_completed: bool = False
     needs_internship_feedback: bool = False
     intern_feedback: Optional[str] = None

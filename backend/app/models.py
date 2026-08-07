@@ -84,6 +84,11 @@ class User(Base):
     # there's no background scheduler in this app, so it's a lazy check
     # rather than a cron job.
     permanent_conversion_date = Column(Date, nullable=True)
+    # Overrides the computed 3-month internship end date for a specific
+    # intern - for early exits/extensions instead of the standard schedule.
+    # When set, this is the date used everywhere (completion banner/modal,
+    # is_internship_completed, needs_internship_feedback).
+    internship_end_date_override = Column(Date, nullable=True)
     intern_feedback = Column(Text, nullable=True)
     intern_feedback_submitted_at = Column(DateTime, nullable=True)
 
@@ -139,6 +144,8 @@ class User(Base):
     def internship_end_date(self) -> dt.date | None:
         if self.employment_type != EmploymentType.INTERN or not self.join_date:
             return None
+        if self.internship_end_date_override is not None:
+            return self.internship_end_date_override
         return _add_months(self.join_date, INTERNSHIP_MONTHS)
 
     @property

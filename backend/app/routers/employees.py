@@ -208,6 +208,7 @@ def update_employee(
         updates.pop("is_team_manager", None)
         updates.pop("role", None)
         updates.pop("email", None)
+        updates.pop("internship_end_date_override", None)
     elif "manager_id" in updates and updates["manager_id"] == user_id:
         raise HTTPException(status_code=400, detail="An employee cannot be their own manager")
 
