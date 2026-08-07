@@ -94,7 +94,10 @@ export function Sidebar() {
     : [
         ...employeeLinks.slice(0, 3),
         ...(user?.is_manager
-          ? [{ href: "/team/leaves", label: "Team leave", icon: "team-check" }]
+          ? [
+              { href: "/team/members", label: "My Team", icon: "users" },
+              { href: "/team/leaves", label: "Team leave", icon: "team-check" },
+            ]
           : []),
         employeeLinks[3],
       ];

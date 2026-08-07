@@ -73,6 +73,24 @@ def create_employee(
     return user
 
 
+@router.get("/my-team", response_model=list[schemas.UserOut])
+def my_team(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Everyone who directly reports to the current user. Returns an empty
+    list for anyone who isn't a manager — this isn't restricted to admins,
+    it's just naturally empty if you don't manage anyone.
+    """
+    return (
+        db.query(models.User)
+        .filter(models.User.manager_id == current_user.id, models.User.is_active == 1)
+        .order_by(models.User.name)
+        .all()
+    )
+
+
 @router.get("/{user_id}", response_model=schemas.UserOut)
 def get_employee(
     user_id: int,
