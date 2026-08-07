@@ -540,6 +540,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Role</th>
                   <th className="pb-3 pr-4">Type</th>
                   <th className="pb-3 pr-4">Department</th>
+                  <th className="pb-3 pr-4">Blood group</th>
                   <th className="pb-3 pr-4">Manager</th>
                   <th className="pb-3 pr-4">Joined</th>
                   <th className="pb-3 pr-4">Leave balance</th>
@@ -594,6 +595,7 @@ export default function AdminEmployeesPage() {
                     </td>
                     <td className="py-3 pr-4 capitalize text-ink-600">{emp.role}</td>
                     <td className="py-3 pr-4 text-ink-600">{emp.department}</td>
+                    <td className="py-3 pr-4 text-ink-600">{emp.blood_group || "—"}</td>
                     <td className="py-3 pr-4">
                       <select
                         className="input px-2 py-1.5 text-xs"
