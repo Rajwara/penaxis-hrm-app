@@ -30,6 +30,8 @@ export default function LeavesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingLeaveId, setEditingLeaveId] = useState<number | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user?.is_eligible_for_annual_leave) setLeaveType("annual");
@@ -56,23 +58,60 @@ export default function LeavesPage() {
     setSubmitting(true);
     try {
       const isShort = leaveType === "short";
-      await api.post("/leaves", {
+      const body = {
         start_date: startDate,
         end_date: isShort ? startDate : endDate,
         leave_type: isShort ? "other" : (leaveType as LeaveType),
         reason,
         is_short_leave: isShort,
-      });
-      setSuccess("Leave request submitted.");
-      setStartDate("");
-      setEndDate("");
-      setReason("");
-      setLeaveType(user?.is_eligible_for_annual_leave ? "annual" : "sick");
+      };
+      if (editingLeaveId !== null) {
+        await api.patch(`/leaves/${editingLeaveId}`, body);
+        setSuccess("Leave request updated.");
+      } else {
+        await api.post("/leaves", body);
+        setSuccess("Leave request submitted.");
+      }
+      resetForm();
       await Promise.all([load(), refreshUser()]);
     } catch (err) {
-      setError(apiErrorMessage(err, "Could not submit leave request"));
+      setError(apiErrorMessage(err, editingLeaveId !== null ? "Could not update leave request" : "Could not submit leave request"));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function resetForm() {
+    setEditingLeaveId(null);
+    setStartDate("");
+    setEndDate("");
+    setReason("");
+    setLeaveType(user?.is_eligible_for_annual_leave ? "annual" : "sick");
+  }
+
+  function handleEditStart(lv: LeaveOut) {
+    setError("");
+    setSuccess("");
+    setEditingLeaveId(lv.id);
+    setStartDate(lv.start_date);
+    setEndDate(lv.end_date);
+    setReason(lv.reason);
+    setLeaveType(lv.is_short_leave ? "short" : lv.leave_type);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleWithdraw(id: number) {
+    if (!confirm("Withdraw this leave request?")) return;
+    setWithdrawingId(id);
+    setError("");
+    try {
+      await api.delete(`/leaves/${id}`);
+      if (editingLeaveId === id) resetForm();
+      await Promise.all([load(), refreshUser()]);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not withdraw this request"));
+    } finally {
+      setWithdrawingId(null);
     }
   }
 
@@ -80,6 +119,11 @@ export default function LeavesPage() {
     <AppShell title="Leave" subtitle="Apply for time off and track your requests">
       <div className="grid gap-6 lg:grid-cols-3">
         <form onSubmit={handleSubmit} className="card space-y-4 lg:col-span-1">
+          {editingLeaveId !== null && (
+            <div className="rounded-lg bg-brand-50 px-3 py-2 text-xs font-medium text-brand-700">
+              Editing your pending request — changes replace the original.
+            </div>
+          )}
           <div>
             <p className="label mb-0">
               {user?.is_on_probation_leave_policy ? "Casual leave balance" : "Annual leave balance"}
@@ -176,8 +220,19 @@ export default function LeavesPage() {
           </div>
 
           <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? "Submitting…" : "Submit request"}
+            {submitting
+              ? editingLeaveId !== null
+                ? "Saving…"
+                : "Submitting…"
+              : editingLeaveId !== null
+              ? "Save changes"
+              : "Submit request"}
           </button>
+          {editingLeaveId !== null && (
+            <button type="button" onClick={resetForm} className="btn-secondary w-full">
+              Cancel edit
+            </button>
+          )}
         </form>
 
         <div className="card lg:col-span-2">
@@ -195,7 +250,8 @@ export default function LeavesPage() {
                     <th className="pb-3 pr-4">Type</th>
                     <th className="pb-3 pr-4">Days</th>
                     <th className="pb-3 pr-4">Reason</th>
-                    <th className="pb-3">Status</th>
+                    <th className="pb-3 pr-4">Status</th>
+                    <th className="pb-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -209,8 +265,27 @@ export default function LeavesPage() {
                       </td>
                       <td className="py-3 pr-4 text-ink-600">{lv.days}</td>
                       <td className="max-w-[180px] truncate py-3 pr-4 text-ink-600">{lv.reason}</td>
-                      <td className="py-3">
+                      <td className="py-3 pr-4">
                         <StatusPill status={lv.status} />
+                      </td>
+                      <td className="py-3 text-right">
+                        {lv.status === "pending" && (
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => handleEditStart(lv)}
+                              className="text-xs font-semibold text-teal-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleWithdraw(lv.id)}
+                              disabled={withdrawingId === lv.id}
+                              className="text-xs font-semibold text-danger hover:underline"
+                            >
+                              {withdrawingId === lv.id ? "Withdrawing…" : "Withdraw"}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

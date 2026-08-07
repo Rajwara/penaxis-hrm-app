@@ -142,6 +142,19 @@ class LeaveStatusUpdate(BaseModel):
     status: LeaveStatus
 
 
+class LeaveUpdate(BaseModel):
+    """
+    For the requester editing their own still-pending request. All fields
+    optional - unspecified ones keep their current value. Re-validated and
+    re-priced the same way as a brand new request.
+    """
+    start_date: Optional[dt.date] = None
+    end_date: Optional[dt.date] = None
+    leave_type: Optional[LeaveType] = None
+    reason: Optional[str] = None
+    is_short_leave: Optional[bool] = None
+
+
 class LeaveOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

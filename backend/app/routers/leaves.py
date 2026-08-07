@@ -22,54 +22,60 @@ def _business_days(start: dt.date, end: dt.date) -> float:
     return float(days) if days > 0 else float((end - start).days + 1)
 
 
-@router.post("", response_model=schemas.LeaveOut, status_code=201)
-def apply_leave(
-    payload: schemas.LeaveCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    if payload.end_date < payload.start_date:
+def _price_and_validate_leave(
+    user: models.User,
+    leave_type: models.LeaveType,
+    is_short_leave: bool,
+    start_date: dt.date,
+    end_date: dt.date,
+) -> tuple[models.LeaveType, float]:
+    """
+    Shared by both creating and editing a leave request: works out the
+    actual leave_type/days for the request and checks balance. Raises
+    HTTPException on any validation failure.
+    """
+    if end_date < start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
 
-    if payload.is_short_leave:
-        if payload.start_date != payload.end_date:
+    if is_short_leave:
+        if start_date != end_date:
             raise HTTPException(
                 status_code=400, detail="Short leave can only be requested for a single day"
             )
         days = 0.5
         # Draws from whichever pool the employee actually uses day-to-day —
         # same rule as a normal leave request of that type.
-        leave_type = (
+        resolved_type = (
             models.LeaveType.CASUAL
-            if current_user.is_on_probation_leave_policy
+            if user.is_on_probation_leave_policy
             else models.LeaveType.ANNUAL
         )
     else:
-        days = _business_days(payload.start_date, payload.end_date)
-        leave_type = payload.leave_type
+        days = _business_days(start_date, end_date)
+        resolved_type = leave_type
 
-    if leave_type == models.LeaveType.ANNUAL:
+    if resolved_type == models.LeaveType.ANNUAL:
         # Short leave is a small, everyday convenience and is always allowed
         # regardless of the 1-year annual-leave eligibility rule, as long as
         # there's accrued balance to cover the 0.5 day. Only a full annual
         # leave request is blocked before 1 year.
-        if not payload.is_short_leave and not current_user.is_eligible_for_annual_leave:
+        if not is_short_leave and not user.is_eligible_for_annual_leave:
             raise HTTPException(
                 status_code=400,
                 detail="Annual leave is available once you've completed one year with the "
                 "company. Short leave, sick, casual, or other leave is still available "
                 "in the meantime.",
             )
-        balance = current_user.annual_leave_balance
+        balance = user.annual_leave_balance
         if days > balance:
             raise HTTPException(
                 status_code=400,
                 detail=f"Insufficient annual leave balance. You have {balance} day(s) accrued so far this year.",
             )
-    elif leave_type == models.LeaveType.CASUAL and current_user.is_on_probation_leave_policy:
+    elif resolved_type == models.LeaveType.CASUAL and user.is_on_probation_leave_policy:
         # Contract/Probation and Intern staff get a flat 1 day/month casual
         # leave allowance instead of the normal pool.
-        balance = current_user.probation_leave_balance
+        balance = user.probation_leave_balance
         if days > balance:
             raise HTTPException(
                 status_code=400,
@@ -77,6 +83,19 @@ def apply_leave(
                 "(1 day per completed month).",
             )
     # Sick / other / unpaid ("short leave") remain uncapped for everyone.
+
+    return resolved_type, days
+
+
+@router.post("", response_model=schemas.LeaveOut, status_code=201)
+def apply_leave(
+    payload: schemas.LeaveCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    leave_type, days = _price_and_validate_leave(
+        current_user, payload.leave_type, payload.is_short_leave, payload.start_date, payload.end_date
+    )
 
     leave = models.LeaveRequest(
         user_id=current_user.id,
@@ -152,6 +171,73 @@ def all_leaves(
         item.user_department = lv.user.department if lv.user else ""
         result.append(item)
     return result
+
+
+@router.patch("/{leave_id}", response_model=schemas.LeaveOut)
+def update_leave(
+    leave_id: int,
+    payload: schemas.LeaveUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Lets the person who submitted a leave request change its dates, type,
+    reason, or short-leave flag - but only while it's still pending. Once a
+    manager/admin has approved or rejected it, it's locked; they'd need to
+    submit a new request instead.
+    """
+    leave = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == leave_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    if leave.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this request")
+    if leave.status != models.LeaveStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="This request has already been decided and can no longer be edited.",
+        )
+
+    updates = payload.model_dump(exclude_unset=True)
+    start_date = updates.get("start_date", leave.start_date)
+    end_date = updates.get("end_date", leave.end_date)
+    leave_type = updates.get("leave_type", leave.leave_type)
+    is_short_leave = updates.get("is_short_leave", leave.is_short_leave)
+
+    resolved_type, days = _price_and_validate_leave(
+        current_user, leave_type, is_short_leave, start_date, end_date
+    )
+
+    leave.start_date = start_date
+    leave.end_date = end_date
+    leave.leave_type = resolved_type
+    leave.is_short_leave = is_short_leave
+    leave.days = days
+    if "reason" in updates:
+        leave.reason = updates["reason"]
+    db.commit()
+    db.refresh(leave)
+    return leave
+
+
+@router.delete("/{leave_id}", status_code=204)
+def cancel_leave(
+    leave_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Lets the requester withdraw their own request while it's still pending."""
+    leave = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == leave_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    if leave.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this request")
+    if leave.status != models.LeaveStatus.PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail="This request has already been decided and can no longer be withdrawn.",
+        )
+    db.delete(leave)
+    db.commit()
 
 
 @router.patch("/{leave_id}/status", response_model=schemas.LeaveOut)
