@@ -73,7 +73,26 @@ def create_employee(
 ):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        if existing.is_active:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        # This email belongs to a previously removed (soft-deleted) account.
+        # Email is unique at the DB level, so we can't create a second row
+        # for it - reactivate this same record instead, which also
+        # preserves their attendance/leave history under the same user_id.
+        existing.name = payload.name
+        existing.hashed_password = hash_password(payload.password)
+        existing.role = payload.role
+        existing.department = payload.department
+        existing.position = payload.position
+        existing.phone = payload.phone
+        existing.leave_quota = payload.leave_quota
+        existing.manager_id = payload.manager_id
+        existing.employment_type = payload.employment_type
+        existing.is_team_manager = payload.is_team_manager
+        existing.is_active = 1
+        db.commit()
+        db.refresh(existing)
+        return existing
     user = models.User(
         name=payload.name,
         email=payload.email,
