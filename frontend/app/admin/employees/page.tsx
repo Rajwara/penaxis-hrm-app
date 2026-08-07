@@ -11,6 +11,7 @@ import { formatDate, todayInKarachi } from "@/lib/format";
 
 export default function AdminEmployeesPage() {
   const { user: currentUser } = useAuth();
+  const canManageCnic = !!(currentUser?.is_super_admin || currentUser?.can_view_cnic);
   const [employees, setEmployees] = useState<UserOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -44,7 +45,7 @@ export default function AdminEmployeesPage() {
   >([]);
   const [bulkError, setBulkError] = useState("");
   const [promoting, setPromoting] = useState<number | null>(null);
-
+  const [togglingCnicAccess, setTogglingCnicAccess] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -190,6 +191,25 @@ export default function AdminEmployeesPage() {
       alert(apiErrorMessage(err, "Could not promote this account"));
     } finally {
       setPromoting(null);
+    }
+  }
+
+  async function handleToggleCnicAccess(emp: UserOut) {
+    const granting = !emp.can_view_cnic;
+    if (
+      granting &&
+      !confirm(`Give ${emp.name} access to view, upload, and replace everyone's CNIC documents?`)
+    )
+      return;
+    if (!granting && !confirm(`Remove ${emp.name}'s CNIC access?`)) return;
+    setTogglingCnicAccess(emp.id);
+    try {
+      await api.post(`/employees/${emp.id}/${granting ? "grant-cnic-access" : "revoke-cnic-access"}`);
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not update CNIC access"));
+    } finally {
+      setTogglingCnicAccess(null);
     }
   }
 
@@ -547,7 +567,7 @@ export default function AdminEmployeesPage() {
                   <th className="pb-3 pr-4">Joined</th>
                   <th className="pb-3 pr-4">Leave balance</th>
                   <th className="pb-3 pr-4">Adjustment</th>
-                  {currentUser?.is_super_admin && <th className="pb-3 pr-4">CNIC</th>}
+                  {canManageCnic && <th className="pb-3 pr-4">CNIC</th>}
                   <th className="pb-3"></th>
                 </tr>
               </thead>
@@ -651,36 +671,34 @@ export default function AdminEmployeesPage() {
                         )}
                       </div>
                     </td>
-                    <td className="py-3 pr-4">
-                      {currentUser?.is_super_admin && (
-                        <>
-                          {emp.cnic_url ? (
-                            <a
-                              href={fileUrl(emp.cnic_url) || "#"}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-medium text-teal-600 hover:underline"
-                            >
-                              Download
-                            </a>
-                          ) : (
-                            <span className="text-xs text-ink-400">Not submitted</span>
-                          )}
-                          <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
-                            {emp.cnic_url ? "Replace" : "Upload"}
-                            <input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png,.webp"
-                              className="hidden"
-                              onChange={(e) => {
-                                if (e.target.files?.[0]) handleAdminCnicReplace(emp.id, e.target.files[0]);
-                                e.target.value = "";
-                              }}
-                            />
-                          </label>
-                        </>
-                      )}
-                    </td>
+                    {canManageCnic && (
+                      <td className="py-3 pr-4">
+                        {emp.cnic_url ? (
+                          <a
+                            href={fileUrl(emp.cnic_url) || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-medium text-teal-600 hover:underline"
+                          >
+                            Download
+                          </a>
+                        ) : (
+                          <span className="text-xs text-ink-400">Not submitted</span>
+                        )}
+                        <label className="mt-1 block cursor-pointer text-[10px] font-semibold text-ink-500 hover:text-ink-800">
+                          {emp.cnic_url ? "Replace" : "Upload"}
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleAdminCnicReplace(emp.id, e.target.files[0]);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </td>
+                    )}
                     <td className="py-3 text-right">
                       <div className="flex justify-end gap-3">
                         <button
@@ -829,6 +847,38 @@ export default function AdminEmployeesPage() {
                     >
                       {promoting === editingId ? "Promoting…" : "Make super admin"}
                     </button>
+                  </div>
+                )}
+
+                {currentUser?.is_super_admin && (
+                  <div className="mt-5 border-t border-ink-100 pt-4">
+                    <p className="label mb-2">CNIC access</p>
+                    <p className="mb-2 text-xs text-ink-400">
+                      By default only you can view, upload, or replace anyone's CNIC. Grant this
+                      specifically if someone else needs it — regular HR/Admin and employees won't
+                      see the CNIC column at all unless granted here.
+                    </p>
+                    {(() => {
+                      const emp = employees.find((e) => e.id === editingId);
+                      if (!emp) return null;
+                      return (
+                        <button
+                          onClick={() => handleToggleCnicAccess(emp)}
+                          disabled={togglingCnicAccess === editingId}
+                          className={
+                            emp.can_view_cnic
+                              ? "btn-secondary border-danger/30 text-danger"
+                              : "btn-secondary"
+                          }
+                        >
+                          {togglingCnicAccess === editingId
+                            ? "Updating…"
+                            : emp.can_view_cnic
+                            ? "Revoke CNIC access"
+                            : "Grant CNIC access"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

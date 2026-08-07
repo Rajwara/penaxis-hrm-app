@@ -29,15 +29,20 @@ def _hidden_from(viewer: models.User, target: models.User) -> bool:
     return viewer.id != target.id
 
 
+def _can_manage_cnic(user: models.User) -> bool:
+    return bool(user.is_super_admin or user.can_view_cnic)
+
+
 def _to_out_redacting_cnic(user: models.User, viewer: models.User) -> schemas.UserOut:
     """
-    Build a UserOut for `user`, stripping CNIC fields unless the viewer is
-    the super admin or looking at their own record. CNIC is sensitive —
-    only the invisible super admin manages it; regular HR/Admin and
-    managers no longer get to see or replace it.
+    Build a UserOut for `user`, stripping CNIC fields unless the viewer has
+    explicit CNIC access (super admin or granted can_view_cnic) or is
+    looking at their own record. CNIC is sensitive — by default only the
+    invisible super admin manages it; specific people can be granted access
+    individually, but regular HR/Admin and managers don't get it by default.
     """
     data = schemas.UserOut.model_validate(user)
-    if not viewer.is_super_admin and viewer.id != user.id:
+    if not _can_manage_cnic(viewer) and viewer.id != user.id:
         data.cnic_url = None
         data.cnic_original_name = None
     return data
@@ -56,9 +61,6 @@ def list_employees(
     users = q.order_by(models.User.id).all()
     for u in users:
         u.maybe_convert_to_permanent(db)
-
-    if admin.is_super_admin:
-        return users
 
     return [_to_out_redacting_cnic(u, admin) for u in users]
 
@@ -318,16 +320,17 @@ async def upload_cnic(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    # CNIC is sensitive. Employees can submit their own once; after that, only
-    # the invisible super admin can replace or remove it — regular HR/Admin
-    # staff no longer have access, even though they can manage everything else.
-    if current_user.id != user_id and not current_user.is_super_admin:
+    # CNIC is sensitive. Employees can submit their own once; after that,
+    # only someone with explicit CNIC access (super admin, or specifically
+    # granted) can replace or remove it — regular HR/Admin staff don't have
+    # access by default, even though they can manage everything else.
+    if current_user.id != user_id and not _can_manage_cnic(current_user):
         raise HTTPException(status_code=403, detail="Not authorized to edit this profile")
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if current_user.id == user_id and not current_user.is_super_admin and user.cnic_filename:
+    if current_user.id == user_id and not _can_manage_cnic(current_user) and user.cnic_filename:
         raise HTTPException(
             status_code=400,
             detail="Your CNIC has already been submitted. Contact HR if it needs to be corrected.",
@@ -382,6 +385,43 @@ def demote_super_admin(
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
     user.is_super_admin = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/grant-cnic-access", response_model=schemas.UserOut)
+def grant_cnic_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    """
+    Grants a specific Admin/HR user the ability to view, upload, and replace
+    CNIC documents for anyone. Deliberately separate from the Admin role
+    itself and from super-admin status - only the super admin can grant or
+    revoke this, on a per-person basis, so it stays limited to whoever is
+    explicitly trusted with it rather than every HR account by default.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_cnic = True
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/revoke-cnic-access", response_model=schemas.UserOut)
+def revoke_cnic_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_cnic = False
     db.commit()
     db.refresh(user)
     return user
