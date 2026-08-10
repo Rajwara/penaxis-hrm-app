@@ -9,6 +9,8 @@ import { api, apiErrorMessage, fileUrl } from "@/lib/api";
 import { UserOut, EmploymentType } from "@/lib/types";
 import { formatDate, todayInKarachi } from "@/lib/format";
 
+const DEPARTMENTS = ["Marketing", "Development", "Sales", "Admin HR", "Design"];
+
 export default function AdminEmployeesPage() {
   const { user: currentUser } = useAuth();
   const canManageCnic = !!(currentUser?.is_super_admin || currentUser?.can_view_cnic);
@@ -533,11 +535,20 @@ export default function AdminEmployeesPage() {
             </div>
             <div>
               <label className="label">Department</label>
-              <input
+              <select
                 className="input"
                 value={form.department}
                 onChange={(e) => setForm({ ...form, department: e.target.value })}
-              />
+              >
+                <option value="" disabled>
+                  Select department
+                </option>
+                {DEPARTMENTS.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">Position</label>
@@ -876,11 +887,20 @@ export default function AdminEmployeesPage() {
                   </div>
                   <div>
                     <label className="label">Department</label>
-                    <input
+                    <select
                       className="input"
                       value={editForm.department}
                       onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                    />
+                    >
+                      {editForm.department && !DEPARTMENTS.includes(editForm.department) && (
+                        <option value={editForm.department}>{editForm.department}</option>
+                      )}
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="label">Position</label>
