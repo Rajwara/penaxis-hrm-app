@@ -68,6 +68,14 @@ export function todayInKarachi(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: DISPLAY_TZ });
 }
 
+export function hoursWorked(checkIn: string | null, checkOut: string | null): string {
+  if (!checkIn || !checkOut) return "-";
+  const ms = parseAsUTC(checkOut).getTime() - parseAsUTC(checkIn).getTime();
+  if (ms <= 0) return "-";
+  const hrs = ms / (1000 * 60 * 60);
+  return `${hrs.toFixed(1)}h`;
+}
+
 export const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",

@@ -98,6 +98,7 @@ export function Sidebar() {
         ...(user?.is_manager
           ? [
               { href: "/team/members", label: "My Team", icon: "users" },
+              { href: "/team/attendance", label: "Team Attendance", icon: "team-check" },
               { href: "/team/leaves", label: "Team leave", icon: "team-check" },
             ]
           : []),

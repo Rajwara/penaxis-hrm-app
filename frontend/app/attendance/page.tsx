@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { AttendanceOut } from "@/lib/types";
-import { formatDate, formatTime, MONTH_NAMES, parseAsUTC } from "@/lib/format";
-
-function hoursWorked(record: AttendanceOut): string {
-  if (!record.check_in || !record.check_out) return "-";
-  const ms = parseAsUTC(record.check_out).getTime() - parseAsUTC(record.check_in).getTime();
-  const hrs = ms / (1000 * 60 * 60);
-  return `${hrs.toFixed(1)}h`;
-}
+import { formatDate, formatTime, MONTH_NAMES, hoursWorked } from "@/lib/format";
 
 export default function AttendancePage() {
   const now = new Date();
@@ -80,7 +73,7 @@ export default function AttendancePage() {
                     <td className="py-3 pr-4 font-medium text-ink-800">{formatDate(r.date)}</td>
                     <td className="py-3 pr-4 font-mono text-ink-600">{formatTime(r.check_in)}</td>
                     <td className="py-3 pr-4 font-mono text-ink-600">{formatTime(r.check_out)}</td>
-                    <td className="py-3 font-mono text-ink-600">{hoursWorked(r)}</td>
+                    <td className="py-3 font-mono text-ink-600">{hoursWorked(r.check_in, r.check_out)}</td>
                   </tr>
                 ))}
               </tbody>
