@@ -6,8 +6,8 @@ import { api } from "@/lib/api";
 import { AttendanceOutWithUser, UserOut } from "@/lib/types";
 import { formatDate, formatTime, todayInKarachi, hoursWorked } from "@/lib/format";
 
-export default function AdminAttendancePage() {
-  const [employees, setEmployees] = useState<UserOut[]>([]);
+export default function TeamAttendancePage() {
+  const [team, setTeam] = useState<UserOut[]>([]);
   const [records, setRecords] = useState<AttendanceOutWithUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +16,7 @@ export default function AdminAttendancePage() {
   const [endDate, setEndDate] = useState<string>("");
 
   useEffect(() => {
-    api.get<UserOut[]>("/employees").then((res) => setEmployees(res.data));
+    api.get<UserOut[]>("/employees/my-team").then((res) => setTeam(res.data));
   }, []);
 
   async function load() {
@@ -59,8 +59,8 @@ export default function AdminAttendancePage() {
   return (
     <AppShell
       title="Team Attendance"
-      subtitle="Check-in and check-out records across the whole team"
-      adminOnly
+      subtitle="Check-in and check-out records for your direct reports"
+      managerOnly
     >
       <div className="mb-5 flex flex-wrap items-end gap-3">
         <div>
@@ -71,7 +71,7 @@ export default function AdminAttendancePage() {
             className="rounded-lg border border-ink-100 bg-white px-3 py-2 text-sm text-ink-800 focus:border-brand-500 focus:outline-none"
           >
             <option value="all">All employees</option>
-            {employees.map((emp) => (
+            {team.map((emp) => (
               <option key={emp.id} value={emp.id}>
                 {emp.name}
               </option>

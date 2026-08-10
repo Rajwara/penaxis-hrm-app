@@ -6,7 +6,7 @@ from sqlalchemy import extract
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user, require_admin
+from ..deps import get_current_user
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
@@ -119,15 +119,19 @@ def team_attendance(
     start_date: dt.date | None = Query(None),
     end_date: dt.date | None = Query(None),
     db: Session = Depends(get_db),
-    admin: models.User = Depends(require_admin),
+    current_user: models.User = Depends(get_current_user),
 ):
     """
-    Team-wide attendance view for Admin/HR (and super admins): every check-in
-    and check-out across all employees, optionally narrowed to one employee
-    and/or a date range. Backs the "Team Attendance" page.
+    Team attendance view: every check-in and check-out across all employees
+    for Admin/HR (and super admins), or just their direct reports for a
+    manager, optionally narrowed to one employee and/or a date range. Backs
+    the "Team Attendance" page (admin) and the manager-facing team attendance page.
     """
     q = db.query(models.Attendance).join(models.User, models.Attendance.user_id == models.User.id)
-    if not admin.is_super_admin:
+    if current_user.role != models.Role.ADMIN:
+        # Managers only see attendance for people who report to them
+        q = q.filter(models.User.manager_id == current_user.id)
+    elif not current_user.is_super_admin:
         # Regular admins can't see super-admin accounts anywhere, including here.
         q = q.filter(models.User.is_super_admin == False)  # noqa: E712
     if user_id is not None:
