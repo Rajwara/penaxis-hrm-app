@@ -12,8 +12,8 @@ export default function AdminAttendancePage() {
   const [loading, setLoading] = useState(true);
 
   const [employeeId, setEmployeeId] = useState<string>("all");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>(todayInKarachi());
+  const [endDate, setEndDate] = useState<string>(todayInKarachi());
 
   useEffect(() => {
     api.get<UserOut[]>("/employees").then((res) => setEmployees(res.data));
