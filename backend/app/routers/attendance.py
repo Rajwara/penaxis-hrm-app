@@ -6,7 +6,7 @@ from sqlalchemy import extract
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_super_admin
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 
@@ -154,3 +154,68 @@ def team_attendance(
         )
         for r in rows
     ]
+
+
+@router.post("", response_model=schemas.AttendanceOut, status_code=201)
+def create_attendance(
+    payload: schemas.AttendanceCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_super_admin),
+):
+    """
+    Manual attendance entry for fixing forgotten punches or logging a late
+    arrival that was never recorded. Super-admin only.
+    """
+    target = db.query(models.User).filter(models.User.id == payload.user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if payload.check_in is None and payload.check_out is None:
+        raise HTTPException(
+            status_code=400, detail="At least one of check_in or check_out is required"
+        )
+    if (
+        payload.check_in is not None
+        and payload.check_out is not None
+        and payload.check_out <= payload.check_in
+    ):
+        raise HTTPException(status_code=400, detail="Check-out must be after check-in")
+
+    record = models.Attendance(
+        user_id=payload.user_id,
+        date=payload.date,
+        check_in=payload.check_in,
+        check_out=payload.check_out,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+@router.patch("/{attendance_id}", response_model=schemas.AttendanceOut)
+def update_attendance(
+    attendance_id: int,
+    payload: schemas.AttendanceUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_super_admin),
+):
+    """Super-admin correction of an existing attendance record."""
+    record = db.query(models.Attendance).filter(models.Attendance.id == attendance_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    check_in = updates.get("check_in", record.check_in)
+    check_out = updates.get("check_out", record.check_out)
+    if check_in is None and check_out is None:
+        raise HTTPException(
+            status_code=400, detail="At least one of check_in or check_out is required"
+        )
+    if check_in is not None and check_out is not None and check_out <= check_in:
+        raise HTTPException(status_code=400, detail="Check-out must be after check-in")
+
+    for field, value in updates.items():
+        setattr(record, field, value)
+    db.commit()
+    db.refresh(record)
+    return record
