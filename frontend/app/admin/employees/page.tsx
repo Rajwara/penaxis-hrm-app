@@ -720,7 +720,7 @@ export default function AdminEmployeesPage() {
                       {emp.is_on_probation_leave_policy ? (
                         <>
                           <p className="font-medium text-ink-800">{emp.probation_leave_balance}</p>
-                          <p className="text-[10px] text-ink-400">casual (probation), usable now</p>
+                          <p className="text-[10px] text-ink-400">leave (probation), usable now</p>
                         </>
                       ) : (
                         <>

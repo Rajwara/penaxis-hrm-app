@@ -260,7 +260,7 @@ export default function ProfilePage() {
                   <dd className="text-ink-800">{user && formatDate(user.join_date)}</dd>
                 </div>
                 <div className="flex justify-between">
-                  <dt className="text-ink-400">Annual leave balance</dt>
+                  <dt className="text-ink-400">Leave balance</dt>
                   <dd className="font-semibold text-ink-800">{user?.annual_leave_balance} days</dd>
                 </div>
                 {user && !user.is_eligible_for_annual_leave && (
@@ -486,7 +486,7 @@ export default function ProfilePage() {
             </div>
             <div className="card text-center">
               <p className="font-display text-2xl font-bold text-ink-900">{user?.annual_leave_balance}</p>
-              <p className="text-xs text-ink-400">Annual leave remaining</p>
+              <p className="text-xs text-ink-400">Leave remaining</p>
             </div>
           </div>
 

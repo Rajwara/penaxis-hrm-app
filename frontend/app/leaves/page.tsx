@@ -125,9 +125,7 @@ export default function LeavesPage() {
             </div>
           )}
           <div>
-            <p className="label mb-0">
-              {user?.is_on_probation_leave_policy ? "Casual leave balance" : "Annual leave balance"}
-            </p>
+            <p className="label mb-0">Leave balance</p>
             <p className="font-display text-2xl font-bold text-ink-900">
               {user?.is_on_probation_leave_policy
                 ? user?.probation_leave_balance ?? 0

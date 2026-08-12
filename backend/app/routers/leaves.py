@@ -31,8 +31,10 @@ def _price_and_validate_leave(
 ) -> tuple[models.LeaveType, float]:
     """
     Shared by both creating and editing a leave request: works out the
-    actual leave_type/days for the request and checks balance. Raises
-    HTTPException on any validation failure.
+    actual leave_type/days for the request and checks balance. Every leave
+    type (Annual, Casual, Sick, Other, Unpaid) draws down the same balance -
+    whichever pool applies to this employee - there's no unlimited type.
+    Raises HTTPException on any validation failure.
     """
     if end_date < start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
@@ -54,35 +56,31 @@ def _price_and_validate_leave(
         days = _business_days(start_date, end_date)
         resolved_type = leave_type
 
-    if resolved_type == models.LeaveType.ANNUAL:
-        # Short leave is a small, everyday convenience and is always allowed
-        # regardless of the 1-year annual-leave eligibility rule, as long as
-        # there's accrued balance to cover the 0.5 day. Only a full annual
-        # leave request is blocked before 1 year.
-        if not is_short_leave and not user.is_eligible_for_annual_leave:
-            raise HTTPException(
-                status_code=400,
-                detail="Annual leave is available once you've completed one year with the "
-                "company. Short leave, sick, casual, or other leave is still available "
-                "in the meantime.",
-            )
-        balance = user.annual_leave_balance
-        if days > balance:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient annual leave balance. You have {balance} day(s) accrued so far this year.",
-            )
-    elif resolved_type == models.LeaveType.CASUAL and user.is_on_probation_leave_policy:
-        # Contract/Probation and Intern staff get a flat 1 day/month casual
-        # leave allowance instead of the normal pool.
-        balance = user.probation_leave_balance
-        if days > balance:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient casual leave balance. You have {balance} day(s) accrued so far "
-                "(1 day per completed month).",
-            )
-    # Sick / other / unpaid ("short leave") remain uncapped for everyone.
+    # Short leave is a small, everyday convenience and is always allowed
+    # regardless of the 1-year annual-leave eligibility rule, as long as
+    # there's accrued balance to cover the 0.5 day. Only a full Annual leave
+    # request is blocked before 1 year — every other type is usable from day
+    # one, still capped by whatever balance has accrued so far.
+    if (
+        resolved_type == models.LeaveType.ANNUAL
+        and not is_short_leave
+        and not user.is_eligible_for_annual_leave
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Annual leave is available once you've completed one year with the "
+            "company. Short leave, sick, casual, or other leave is still available "
+            "in the meantime.",
+        )
+
+    balance = (
+        user.probation_leave_balance if user.is_on_probation_leave_policy else user.annual_leave_balance
+    )
+    if days > balance:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient leave balance. You have {balance} day(s) available.",
+        )
 
     return resolved_type, days
 
@@ -263,25 +261,21 @@ def update_leave_status(
     if leave.status != models.LeaveStatus.PENDING:
         raise HTTPException(status_code=400, detail="This request has already been decided")
 
-    if payload.status == models.LeaveStatus.APPROVED and leave.leave_type == models.LeaveType.ANNUAL:
-        # Re-check at approval time: balance is derived live from approved history,
-        # so this re-validates in case other requests were approved in between.
-        # (This leave is still pending, so it isn't counted in its own balance yet.)
-        if leave.days > employee.annual_leave_balance:
+    if payload.status == models.LeaveStatus.APPROVED and employee is not None:
+        # Re-check at approval time: balance is derived live from approved
+        # history, so this re-validates in case other requests were approved
+        # in between. (This leave is still pending, so it isn't counted in
+        # its own balance yet.) Every leave type draws from the same pool,
+        # so this check applies regardless of leave_type.
+        balance = (
+            employee.probation_leave_balance
+            if employee.is_on_probation_leave_policy
+            else employee.annual_leave_balance
+        )
+        if leave.days > balance:
             raise HTTPException(
                 status_code=400,
-                detail="Employee no longer has sufficient annual leave balance",
-            )
-    if (
-        payload.status == models.LeaveStatus.APPROVED
-        and leave.leave_type == models.LeaveType.CASUAL
-        and employee is not None
-        and employee.is_on_probation_leave_policy
-    ):
-        if leave.days > employee.probation_leave_balance:
-            raise HTTPException(
-                status_code=400,
-                detail="Employee no longer has sufficient casual leave balance",
+                detail="Employee no longer has sufficient leave balance",
             )
 
     leave.status = payload.status
