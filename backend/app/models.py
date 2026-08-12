@@ -193,6 +193,11 @@ class User(Base):
         return round(min(ANNUAL_LEAVE_PER_YEAR, credits_in_year * MONTHLY_ACCRUAL), 2)
 
     def _used_for_year(self, year: int) -> float:
+        """
+        Every approved leave request counts against this balance, regardless
+        of type - Annual, Casual, Sick, Other, and Unpaid all draw from the
+        same pool. Only requests starting in the given calendar year count.
+        """
         session = object_session(self)
         if session is None:
             return 0.0
@@ -200,7 +205,6 @@ class User(Base):
             session.query(LeaveRequest)
             .filter(
                 LeaveRequest.user_id == self.id,
-                LeaveRequest.leave_type == LeaveType.ANNUAL,
                 LeaveRequest.status == LeaveStatus.APPROVED,
             )
             .all()
@@ -234,7 +238,11 @@ class User(Base):
 
     @property
     def annual_leave_balance(self) -> float:
-        """Carried-forward balance + this year's accrual + adjustment, minus leave used this year."""
+        """
+        Carried-forward balance + this year's accrual + adjustment, minus
+        ALL approved leave used this year (not just Annual-type requests -
+        Casual/Sick/Other/Unpaid draw from this same pool too).
+        """
         return round(
             self.annual_leave_carried_forward
             + self.annual_leave_accrued
@@ -246,12 +254,10 @@ class User(Base):
     @property
     def is_on_probation_leave_policy(self) -> bool:
         """
-        Contract/Probation and Intern staff get a flat 1 day/month casual
-        leave allowance instead of the normal annual-leave scheme (which
-        they can't use anyway before 1 year, and Contract/Probation is
-        meant to be a shorter status than that). This is unaffected by the
-        annual-leave 1-year eligibility rule since it's a different leave
-        type (casual), not annual leave.
+        Contract/Probation and Intern staff get a flat 1 day/month leave
+        allowance (covering every leave type) instead of the normal
+        annual-leave scheme (which they can't use anyway before 1 year, and
+        Contract/Probation is meant to be a shorter status than that).
         """
         return self.employment_type in (EmploymentType.CONTRACT, EmploymentType.INTERN)
 
@@ -265,6 +271,7 @@ class User(Base):
 
     @property
     def probation_leave_used(self) -> float:
+        """Every approved leave request counts against this pool, regardless of type."""
         session = object_session(self)
         if session is None:
             return 0.0
@@ -272,7 +279,6 @@ class User(Base):
             session.query(LeaveRequest)
             .filter(
                 LeaveRequest.user_id == self.id,
-                LeaveRequest.leave_type == LeaveType.CASUAL,
                 LeaveRequest.status == LeaveStatus.APPROVED,
             )
             .all()
