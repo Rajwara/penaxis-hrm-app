@@ -130,6 +130,19 @@ class AttendanceOutWithUser(AttendanceOut):
     user_department: str
 
 
+class AttendanceCreate(BaseModel):
+    user_id: int
+    date: dt.date
+    check_in: Optional[dt.datetime] = None
+    check_out: Optional[dt.datetime] = None
+
+
+class AttendanceUpdate(BaseModel):
+    date: Optional[dt.date] = None
+    check_in: Optional[dt.datetime] = None
+    check_out: Optional[dt.datetime] = None
+
+
 # ---------- Leave ----------
 class LeaveCreate(BaseModel):
     start_date: dt.date

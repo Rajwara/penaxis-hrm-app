@@ -68,6 +68,40 @@ export function todayInKarachi(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: DISPLAY_TZ });
 }
 
+// Asia/Karachi (Pakistan Standard Time) is a fixed UTC+05:00 offset with no
+// DST, so converting between Karachi wall-clock time and UTC is safe as
+// simple fixed-hour arithmetic - no IANA tz database lookup needed.
+const KARACHI_UTC_OFFSET_HOURS = 5;
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, "0");
+}
+
+// Converts an admin-entered Asia/Karachi wall-clock date + time (from
+// <input type="date">/<input type="time">, so "YYYY-MM-DD" / "HH:MM") into
+// the naive-UTC datetime string the backend stores. Karachi is AHEAD of
+// UTC, so this SUBTRACTS the offset - never add it here.
+export function karachiLocalToNaiveUTC(dateStr: string, timeStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hour, minute] = timeStr.split(":").map(Number);
+  const asIfUTC = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const utcInstant = new Date(asIfUTC - KARACHI_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+  return utcInstant.toISOString().slice(0, 19);
+}
+
+// Inverse of karachiLocalToNaiveUTC: given a stored naive-UTC datetime
+// string, returns the Asia/Karachi wall-clock date/time as raw
+// "YYYY-MM-DD" / "HH:MM" strings for pre-filling date/time <input> values.
+// Uses the UTC accessors on the shifted Date (not the local get* ones,
+// which would incorrectly apply the browser's own timezone on top).
+export function naiveUTCToKarachiLocalParts(dateTimeStr: string): { date: string; time: string } {
+  const utcInstant = parseAsUTC(dateTimeStr);
+  const karachiShifted = new Date(utcInstant.getTime() + KARACHI_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+  const date = `${karachiShifted.getUTCFullYear()}-${pad2(karachiShifted.getUTCMonth() + 1)}-${pad2(karachiShifted.getUTCDate())}`;
+  const time = `${pad2(karachiShifted.getUTCHours())}:${pad2(karachiShifted.getUTCMinutes())}`;
+  return { date, time };
+}
+
 export function hoursWorked(checkIn: string | null, checkOut: string | null): string {
   if (!checkIn || !checkOut) return "-";
   const ms = parseAsUTC(checkOut).getTime() - parseAsUTC(checkIn).getTime();
