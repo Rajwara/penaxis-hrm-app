@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth-context";
 import { api, apiErrorMessage } from "@/lib/api";
-import { AttendanceOut, LeaveOut } from "@/lib/types";
+import { AttendanceOut, LeaveOut, LeaveOutWithUser } from "@/lib/types";
 import { formatTime, formatLiveClock, formatLiveDate, parseAsUTC } from "@/lib/format";
 import { StatusPill } from "@/components/StatusPill";
 import { InternshipCompletionBanner } from "@/components/InternshipCompletionBanner";
@@ -35,10 +35,14 @@ function totalHoursToday(sessions: AttendanceOut[]): string {
   return (ms / (1000 * 60 * 60)).toFixed(1);
 }
 
+type DashboardLeave = LeaveOut & { user_name?: string };
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isManagerOrAdmin = isAdmin || !!user?.is_manager;
   const [sessions, setSessions] = useState<AttendanceOut[]>([]);
-  const [leaves, setLeaves] = useState<LeaveOut[]>([]);
+  const [leaves, setLeaves] = useState<DashboardLeave[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,9 +50,14 @@ export default function DashboardPage() {
   async function load() {
     setLoading(true);
     try {
+      // Managers/admins get requests waiting on THEIR decision (their team,
+      // or the whole company for admins) - not just their own leave history.
+      const leavesPromise = isManagerOrAdmin
+        ? api.get<LeaveOutWithUser[]>("/leaves", { params: { status_filter: "pending" } })
+        : api.get<LeaveOut[]>("/leaves/me");
       const [todayRes, leavesRes] = await Promise.all([
         api.get<AttendanceOut[]>("/attendance/today"),
-        api.get<LeaveOut[]>("/leaves/me"),
+        leavesPromise,
       ]);
       setSessions(todayRes.data);
       setLeaves(leavesRes.data);
@@ -58,8 +67,9 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    load();
-  }, []);
+    if (user) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const openSession = sessions.find((s) => s.check_in && !s.check_out);
   const hasFinishedASession = sessions.some((s) => s.check_out);
@@ -170,11 +180,22 @@ export default function DashboardPage() {
               <ul className="mt-2 space-y-3">
                 {pendingLeaves.slice(0, 3).map((lv) => (
                   <li key={lv.id} className="flex items-center justify-between text-sm">
-                    <span className="text-ink-700 capitalize">{lv.leave_type} · {lv.days}d</span>
+                    <span className="text-ink-700 capitalize">
+                      {lv.user_name ? `${lv.user_name} · ` : ""}
+                      {lv.leave_type} · {lv.days}d
+                    </span>
                     <StatusPill status={lv.status} />
                   </li>
                 ))}
               </ul>
+            )}
+            {isManagerOrAdmin && (
+              <a
+                href={isAdmin ? "/admin/leaves" : "/team/leaves"}
+                className="mt-3 inline-block text-sm font-medium text-teal-600 hover:text-teal-500"
+              >
+                Review requests →
+              </a>
             )}
           </div>
         </div>
