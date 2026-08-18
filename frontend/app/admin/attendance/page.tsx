@@ -9,7 +9,7 @@ import {
   formatDate,
   formatTime,
   todayInKarachi,
-  hoursWorked,
+  groupAttendanceSessions,
   karachiLocalToNaiveUTC,
   naiveUTCToKarachiLocalParts,
 } from "@/lib/format";
@@ -300,24 +300,41 @@ export default function AdminAttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {records.map((r) => (
-                  <tr key={r.id} className="border-b border-ink-50 last:border-0">
+                {groupAttendanceSessions(records).map((g) => (
+                  <tr key={`${g.user_id}-${g.date}`} className="border-b border-ink-50 last:border-0">
                     <td className="py-3 pr-4">
-                      <p className="font-medium text-ink-800">{r.user_name}</p>
-                      <p className="text-xs text-ink-400">{r.user_department}</p>
+                      <p className="font-medium text-ink-800">{g.user_name}</p>
+                      <p className="text-xs text-ink-400">{g.user_department}</p>
                     </td>
-                    <td className="py-3 pr-4 text-ink-600">{formatDate(r.date)}</td>
-                    <td className="py-3 pr-4 text-ink-600">{formatTime(r.check_in)}</td>
-                    <td className="py-3 pr-4 text-ink-600">{formatTime(r.check_out)}</td>
-                    <td className="py-3 text-ink-600">{hoursWorked(r.check_in, r.check_out)}</td>
+                    <td className="py-3 pr-4 text-ink-600">{formatDate(g.date)}</td>
+                    <td className="py-3 pr-4 text-ink-600">
+                      <div className="space-y-1">
+                        {g.sessions.map((s) => (
+                          <div key={s.id}>{formatTime(s.check_in)}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4 text-ink-600">
+                      <div className="space-y-1">
+                        {g.sessions.map((s) => (
+                          <div key={s.id}>{formatTime(s.check_out)}</div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-3 text-ink-600">{g.totalHours}</td>
                     {isSuperAdmin && (
                       <td className="py-3 pl-4">
-                        <button
-                          onClick={() => handleEditAttendanceOpen(r)}
-                          className="text-xs font-medium text-brand-600 hover:underline"
-                        >
-                          Edit
-                        </button>
+                        <div className="space-y-1">
+                          {g.sessions.map((s) => (
+                            <button
+                              key={s.id}
+                              onClick={() => handleEditAttendanceOpen(s)}
+                              className="block text-xs font-medium text-brand-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          ))}
+                        </div>
                       </td>
                     )}
                   </tr>
