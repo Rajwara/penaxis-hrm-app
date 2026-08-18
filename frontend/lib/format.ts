@@ -1,3 +1,5 @@
+import { AttendanceOutWithUser } from "./types";
+
 const DISPLAY_TZ = "Asia/Karachi";
 
 // The backend stores and returns timestamps as naive UTC (no timezone suffix).
@@ -108,6 +110,60 @@ export function hoursWorked(checkIn: string | null, checkOut: string | null): st
   if (ms <= 0) return "-";
   const hrs = ms / (1000 * 60 * 60);
   return `${hrs.toFixed(1)}h`;
+}
+
+export interface AttendanceSessionGroup {
+  user_id: number;
+  date: string;
+  user_name: string;
+  user_department: string;
+  sessions: AttendanceOutWithUser[];
+  totalHours: string;
+}
+
+// The same employee can have multiple check-in/check-out sessions on the
+// same date (e.g. a lunch break in between). Attendance tables show one row
+// per employee per day rather than one row per session, so this collapses
+// same user_id + date records into a group, sorted earliest-session-first,
+// with a combined total (summing each session's own worked time, not the
+// gap between the first check-in and the last check-out, so break time
+// isn't counted as worked).
+export function groupAttendanceSessions(records: AttendanceOutWithUser[]): AttendanceSessionGroup[] {
+  const groups = new Map<string, AttendanceSessionGroup>();
+  for (const r of records) {
+    const key = `${r.user_id}|${r.date}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        user_id: r.user_id,
+        date: r.date,
+        user_name: r.user_name,
+        user_department: r.user_department,
+        sessions: [],
+        totalHours: "",
+      };
+      groups.set(key, group);
+    }
+    group.sessions.push(r);
+  }
+
+  const result = Array.from(groups.values());
+  for (const group of result) {
+    group.sessions.sort((a, b) => {
+      if (!a.check_in) return 1;
+      if (!b.check_in) return -1;
+      return parseAsUTC(a.check_in).getTime() - parseAsUTC(b.check_in).getTime();
+    });
+    let totalMs = 0;
+    for (const s of group.sessions) {
+      if (s.check_in && s.check_out) {
+        const ms = parseAsUTC(s.check_out).getTime() - parseAsUTC(s.check_in).getTime();
+        if (ms > 0) totalMs += ms;
+      }
+    }
+    group.totalHours = totalMs > 0 ? `${(totalMs / (1000 * 60 * 60)).toFixed(1)}h` : "-";
+  }
+  return result;
 }
 
 export const MONTH_NAMES = [
