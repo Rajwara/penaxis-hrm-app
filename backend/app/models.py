@@ -109,6 +109,7 @@ class User(Base):
     is_team_manager = Column(Boolean, default=False, nullable=False)  # explicit HR-granted manager status
     can_view_cnic = Column(Boolean, default=False, nullable=False)  # super-admin-granted CNIC access, separate from role
     can_view_sensitive_info = Column(Boolean, default=False, nullable=False)  # super-admin-granted phone/CV access
+    can_view_birthdays = Column(Boolean, default=False, nullable=False)  # super-admin-granted access to the full Birthdays page
 
     @property
     def manager_name(self) -> str | None:

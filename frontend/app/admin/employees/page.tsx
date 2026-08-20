@@ -51,6 +51,7 @@ export default function AdminEmployeesPage() {
   const [promoting, setPromoting] = useState<number | null>(null);
   const [togglingCnicAccess, setTogglingCnicAccess] = useState<number | null>(null);
   const [togglingSensitiveAccess, setTogglingSensitiveAccess] = useState<number | null>(null);
+  const [togglingBirthdaysAccess, setTogglingBirthdaysAccess] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -234,6 +235,23 @@ export default function AdminEmployeesPage() {
       alert(apiErrorMessage(err, "Could not update phone/CV access"));
     } finally {
       setTogglingSensitiveAccess(null);
+    }
+  }
+
+  async function handleToggleBirthdaysAccess(emp: UserOut) {
+    const granting = !emp.can_view_birthdays;
+    if (granting && !confirm(`Give ${emp.name} access to view everyone's birthdays?`)) return;
+    if (!granting && !confirm(`Remove ${emp.name}'s birthdays access?`)) return;
+    setTogglingBirthdaysAccess(emp.id);
+    try {
+      await api.post(
+        `/employees/${emp.id}/${granting ? "grant-birthdays-access" : "revoke-birthdays-access"}`
+      );
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Could not update birthdays access"));
+    } finally {
+      setTogglingBirthdaysAccess(null);
     }
   }
 
@@ -1065,6 +1083,38 @@ export default function AdminEmployeesPage() {
                             : emp.can_view_sensitive_info
                             ? "Revoke phone/CV access"
                             : "Grant phone/CV access"}
+                        </button>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {currentUser?.is_super_admin && (
+                  <div className="mt-5 border-t border-ink-100 pt-4">
+                    <p className="label mb-2">Birthdays access</p>
+                    <p className="mb-2 text-xs text-ink-400">
+                      By default only Admin/HR can see the full Birthdays page. Grant this
+                      specifically if someone else needs it — independent of CNIC and phone/CV
+                      access.
+                    </p>
+                    {(() => {
+                      const emp = employees.find((e) => e.id === editingId);
+                      if (!emp) return null;
+                      return (
+                        <button
+                          onClick={() => handleToggleBirthdaysAccess(emp)}
+                          disabled={togglingBirthdaysAccess === editingId}
+                          className={
+                            emp.can_view_birthdays
+                              ? "btn-secondary border-danger/30 text-danger"
+                              : "btn-secondary"
+                          }
+                        >
+                          {togglingBirthdaysAccess === editingId
+                            ? "Updating…"
+                            : emp.can_view_birthdays
+                            ? "Revoke birthdays access"
+                            : "Grant birthdays access"}
                         </button>
                       );
                     })()}

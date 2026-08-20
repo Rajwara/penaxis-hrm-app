@@ -102,6 +102,9 @@ export function Sidebar() {
               { href: "/team/leaves", label: "Team leave", icon: "team-check" },
             ]
           : []),
+        ...(user?.can_view_birthdays
+          ? [{ href: "/admin/birthdays", label: "Birthdays", icon: "cake" }]
+          : []),
         employeeLinks[3],
       ];
 
