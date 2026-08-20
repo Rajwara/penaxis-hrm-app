@@ -37,6 +37,10 @@ def _can_view_sensitive_info(user: models.User) -> bool:
     return bool(user.is_super_admin or user.can_view_sensitive_info)
 
 
+def _can_view_birthdays(user: models.User) -> bool:
+    return bool(user.is_super_admin or user.role == models.Role.ADMIN or user.can_view_birthdays)
+
+
 def _to_out_redacted(user: models.User, viewer: models.User) -> schemas.UserOut:
     """
     Build a UserOut for `user` as seen by `viewer`, stripping fields the
@@ -141,6 +145,29 @@ def my_team(
         .order_by(models.User.name)
         .all()
     ]
+
+
+@router.get("/birthdays", response_model=list[schemas.UserOut])
+def birthdays_roster(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Full active-employee roster for the Birthdays page (name, position,
+    department, birthday - other fields redacted per the usual CNIC/
+    sensitive-info rules). Available to Admin/HR, the super admin, and
+    anyone specifically granted can_view_birthdays - unlike the general
+    employee roster, this isn't restricted to admins.
+    """
+    if not _can_view_birthdays(current_user):
+        raise HTTPException(status_code=403, detail="Not authorized to view birthdays")
+    q = db.query(models.User).filter(models.User.is_active == 1)
+    if not current_user.is_super_admin:
+        q = q.filter(
+            (models.User.is_super_admin == False) | (models.User.id == current_user.id)  # noqa: E712
+        )
+    users = q.order_by(models.User.name).all()
+    return [_to_out_redacted(u, current_user) for u in users]
 
 
 @router.get("/{user_id}", response_model=schemas.UserOut)
@@ -544,6 +571,41 @@ def revoke_sensitive_access(
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
     user.can_view_sensitive_info = False
+    db.commit()
+    db.refresh(user)
+    return _to_out_redacted(user, admin)
+
+
+@router.post("/{user_id}/grant-birthdays-access", response_model=schemas.UserOut)
+def grant_birthdays_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    """
+    Grants a specific person access to the full Birthdays page (everyone's
+    birthday, not just today's), independent of role and of the CNIC/
+    sensitive-info grants. Only the super admin can grant or revoke this.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_birthdays = True
+    db.commit()
+    db.refresh(user)
+    return _to_out_redacted(user, admin)
+
+
+@router.post("/{user_id}/revoke-birthdays-access", response_model=schemas.UserOut)
+def revoke_birthdays_access(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_super_admin),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    user.can_view_birthdays = False
     db.commit()
     db.refresh(user)
     return _to_out_redacted(user, admin)

@@ -30,6 +30,7 @@ export interface UserOut {
   is_super_admin: boolean;
   can_view_cnic: boolean;
   can_view_sensitive_info: boolean;
+  can_view_birthdays: boolean;
   is_eligible_for_annual_leave: boolean;
   is_on_probation_leave_policy: boolean;
   probation_leave_accrued: number;

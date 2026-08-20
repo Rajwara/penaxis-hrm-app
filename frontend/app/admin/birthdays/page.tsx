@@ -53,7 +53,7 @@ export default function BirthdaysPage() {
 
   useEffect(() => {
     api
-      .get<UserOut[]>("/employees")
+      .get<UserOut[]>("/employees/birthdays")
       .then((res) => setEmployees(res.data))
       .finally(() => setLoading(false));
   }, []);
@@ -76,7 +76,7 @@ export default function BirthdaysPage() {
   }, [birthdays]);
 
   return (
-    <AppShell title="Birthdays" subtitle="Everyone's birthday, sorted by what's coming up next" adminOnly>
+    <AppShell title="Birthdays" subtitle="Everyone's birthday, sorted by what's coming up next" birthdaysOnly>
       {loading ? (
         <p className="py-8 text-center text-sm text-ink-400">Loading…</p>
       ) : birthdays.length === 0 ? (

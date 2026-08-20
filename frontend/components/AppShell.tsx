@@ -11,12 +11,14 @@ export function AppShell({
   subtitle,
   adminOnly = false,
   managerOnly = false,
+  birthdaysOnly = false,
   children,
 }: {
   title: string;
   subtitle?: string;
   adminOnly?: boolean;
   managerOnly?: boolean;
+  birthdaysOnly?: boolean;
   children: ReactNode;
 }) {
   const { user, loading } = useAuth();
@@ -24,9 +26,12 @@ export function AppShell({
 
   const isAdmin = user?.role === "admin";
   const isManagerOrAdmin = isAdmin || !!user?.is_manager;
+  const canViewBirthdays = isAdmin || !!user?.can_view_birthdays;
 
   const forbidden =
-    (adminOnly && !isAdmin) || (managerOnly && !isManagerOrAdmin);
+    (adminOnly && !isAdmin) ||
+    (managerOnly && !isManagerOrAdmin) ||
+    (birthdaysOnly && !canViewBirthdays);
 
   useEffect(() => {
     if (loading) return;
