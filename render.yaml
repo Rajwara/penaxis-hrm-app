@@ -1,3 +1,9 @@
+databases:
+  - name: penaxis-hrm-db
+    plan: free
+    databaseName: penaxis_hrm
+    user: penaxis_hrm
+
 services:
   - type: web
     name: penaxis-hrm-backend
@@ -9,3 +15,7 @@ services:
     envVars:
       - key: HRM_SECRET_KEY
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: penaxis-hrm-db
+          property: connectionString
