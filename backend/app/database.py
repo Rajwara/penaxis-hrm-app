@@ -1,6 +1,9 @@
+import logging
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+
+logger = logging.getLogger("hrm.database")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,6 +28,22 @@ else:
     os.makedirs(DATA_DIR, exist_ok=True)
     DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'hrm.db')}"
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+    # Loud, impossible-to-miss warning: on Render (and most PaaS free tiers)
+    # the filesystem is ephemeral, so this SQLite file is wiped on every
+    # redeploy/restart - anyone running without DATABASE_URL in a deployed
+    # environment is one deploy away from losing every employee record,
+    # attendance log, and leave request. Logged at both WARNING (so it shows
+    # up in any log aggregator with default filtering) and printed directly
+    # to stderr (so it's visible even if logging handlers aren't configured).
+    if os.environ.get("RENDER"):
+        _msg = (
+            "DATABASE_URL is not set, but this is running on Render! Falling back "
+            "to a local SQLite file at %s - Render's disk is ephemeral, so this "
+            "database WILL be wiped on the next deploy/restart. Attach a Postgres "
+            "database and set DATABASE_URL immediately." % os.path.join(DATA_DIR, "hrm.db")
+        )
+        logger.warning(_msg)
+        print(f"WARNING: {_msg}", flush=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

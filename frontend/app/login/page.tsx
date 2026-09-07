@@ -19,7 +19,16 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(apiErrorMessage(err, "Incorrect email or password"));
+      const status = (err as any)?.response?.status;
+      if (status === 401) {
+        setError(apiErrorMessage(err, "Incorrect email or password"));
+      } else if (status) {
+        // A real backend error (500, etc.) - don't blame the password for it.
+        setError(apiErrorMessage(err, "The server ran into a problem. Please try again in a moment."));
+      } else {
+        // No response at all - network/timeout/CORS, not a credentials issue.
+        setError("Could not reach the server. Please check your connection and try again.");
+      }
     } finally {
       setSubmitting(false);
     }
