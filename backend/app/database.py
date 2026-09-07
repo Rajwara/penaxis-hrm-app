@@ -36,11 +36,18 @@ else:
     # up in any log aggregator with default filtering) and printed directly
     # to stderr (so it's visible even if logging handlers aren't configured).
     if os.environ.get("RENDER"):
+        _platform = "Render"
+    elif os.environ.get("RAILWAY_ENVIRONMENT"):
+        _platform = "Railway"
+    else:
+        _platform = None
+    if _platform:
         _msg = (
-            "DATABASE_URL is not set, but this is running on Render! Falling back "
-            "to a local SQLite file at %s - Render's disk is ephemeral, so this "
+            "DATABASE_URL is not set, but this is running on %s! Falling back "
+            "to a local SQLite file at %s - %s's disk is ephemeral, so this "
             "database WILL be wiped on the next deploy/restart. Attach a Postgres "
-            "database and set DATABASE_URL immediately." % os.path.join(DATA_DIR, "hrm.db")
+            "database and set DATABASE_URL immediately."
+            % (_platform, os.path.join(DATA_DIR, "hrm.db"), _platform)
         )
         logger.warning(_msg)
         print(f"WARNING: {_msg}", flush=True)
