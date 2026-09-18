@@ -20,16 +20,27 @@ pictures) are downloaded too; if omitted, only the structured database
 fields are exported.
 
 Produces, in ./export_output/ (relative to wherever you run this from):
-  - employees.csv    one row per employee (including soft-deleted / removed
-                      ones), all personal/HR fields except the password hash
-  - employees.json    the same data, full fidelity
-  - uploads/<file>    every referenced CV/CNIC/profile-picture file, if
-                      BACKEND_BASE_URL was provided and reachable
+  - employees.csv          one row per employee (including soft-deleted /
+                            removed ones), all personal/HR fields except
+                            the password hash
+  - employees.json         the same data, full fidelity
+  - birthdays.xlsx         everyone's date of birth, sorted by what's coming
+                            up next (same ordering as the app's own
+                            Birthdays page)
+  - documents/cvs/              every employee's CV, named "<name> - <original
+                                 filename>" so it's actually browsable
+  - documents/cnics/             same, for CNIC images
+  - documents/profile_pictures/  same, for profile pictures
+  (all three only if BACKEND_BASE_URL was provided and reachable - the
+  files are stored under opaque generated names, so this download step is
+  what makes them identifiable by employee)
 """
 
 import csv
+import datetime as dt
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
@@ -38,11 +49,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from openpyxl import Workbook
 
 from app import models
+from app.routers.reports import _style_header, _autofit
 
 OUTPUT_DIR = os.path.join(os.getcwd(), "export_output")
-UPLOADS_DIR = os.path.join(OUTPUT_DIR, "uploads")
+DOCUMENTS_DIR = os.path.join(OUTPUT_DIR, "documents")
+CVS_DIR = os.path.join(DOCUMENTS_DIR, "cvs")
+CNICS_DIR = os.path.join(DOCUMENTS_DIR, "cnics")
+PROFILE_PICTURES_DIR = os.path.join(DOCUMENTS_DIR, "profile_pictures")
 
 FIELDS = [
     "id", "name", "email", "role", "department", "position", "phone",
@@ -76,19 +92,54 @@ def _row_dict(user: models.User) -> dict:
     return row
 
 
-def _download_upload(base_url: str, filename: str) -> None:
-    if not filename:
+def _safe_filename(name: str) -> str:
+    return re.sub(r'[\\/:*?"<>|]+', "_", name).strip()
+
+
+def _download_upload(base_url: str, stored_filename: str, dest_path: str) -> None:
+    if not stored_filename:
         return
-    dest = os.path.join(UPLOADS_DIR, filename)
-    if os.path.exists(dest):
+    if os.path.exists(dest_path):
         return
-    url = f"{base_url.rstrip('/')}/uploads/{filename}"
+    url = f"{base_url.rstrip('/')}/uploads/{stored_filename}"
     try:
-        with urllib.request.urlopen(url, timeout=30) as resp, open(dest, "wb") as f:
+        with urllib.request.urlopen(url, timeout=30) as resp, open(dest_path, "wb") as f:
             f.write(resp.read())
-        print(f"  downloaded {filename}")
+        print(f"  downloaded {os.path.relpath(dest_path, OUTPUT_DIR)}")
     except (urllib.error.URLError, urllib.error.HTTPError) as e:
-        print(f"  WARNING: could not download {filename}: {e}")
+        print(f"  WARNING: could not download {stored_filename}: {e}")
+
+
+def _days_until_next_birthday(birthday: dt.date, today: dt.date) -> int:
+    next_bday = dt.date(today.year, birthday.month, birthday.day)
+    if next_bday < today:
+        next_bday = dt.date(today.year + 1, birthday.month, birthday.day)
+    return (next_bday - today).days
+
+
+def _write_birthdays_xlsx(users: list, path: str) -> None:
+    today = dt.date.today()
+    with_birthday = [u for u in users if u.is_active and u.birthday]
+    with_birthday.sort(key=lambda u: _days_until_next_birthday(u.birthday, today))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Birthdays"
+    headers = ["Name", "Department", "Position", "Date of Birth", "Next Birthday", "Days Until"]
+    ws.append(headers)
+    _style_header(ws, 1, len(headers))
+    for u in with_birthday:
+        days_until = _days_until_next_birthday(u.birthday, today)
+        next_bday = dt.date(today.year, u.birthday.month, u.birthday.day)
+        if next_bday < today:
+            next_bday = dt.date(today.year + 1, u.birthday.month, u.birthday.day)
+        ws.append([
+            u.name, u.department, u.position,
+            u.birthday.isoformat(), next_bday.isoformat(), days_until,
+        ])
+    ws.freeze_panes = "A2"
+    _autofit(ws, len(headers))
+    wb.save(path)
 
 
 def main() -> None:
@@ -121,13 +172,37 @@ def main() -> None:
         json.dump(rows, f, indent=2, default=str)
     print(f"Wrote {json_path}")
 
+    xlsx_path = os.path.join(OUTPUT_DIR, "birthdays.xlsx")
+    _write_birthdays_xlsx(users, xlsx_path)
+    print(f"Wrote {xlsx_path}")
+
     if backend_base_url:
-        os.makedirs(UPLOADS_DIR, exist_ok=True)
+        os.makedirs(CVS_DIR, exist_ok=True)
+        os.makedirs(CNICS_DIR, exist_ok=True)
+        os.makedirs(PROFILE_PICTURES_DIR, exist_ok=True)
         print(f"Downloading uploaded documents from {backend_base_url} ...")
         for u in users:
-            _download_upload(backend_base_url, u.profile_picture)
-            _download_upload(backend_base_url, u.cv_filename)
-            _download_upload(backend_base_url, u.cnic_filename)
+            safe_name = _safe_filename(u.name)
+            if u.cv_filename:
+                ext = os.path.splitext(u.cv_filename)[1]
+                original = u.cv_original_name or f"cv{ext}"
+                _download_upload(
+                    backend_base_url, u.cv_filename,
+                    os.path.join(CVS_DIR, f"{safe_name} - {original}"),
+                )
+            if u.cnic_filename:
+                ext = os.path.splitext(u.cnic_filename)[1]
+                original = u.cnic_original_name or f"cnic{ext}"
+                _download_upload(
+                    backend_base_url, u.cnic_filename,
+                    os.path.join(CNICS_DIR, f"{safe_name} - {original}"),
+                )
+            if u.profile_picture:
+                ext = os.path.splitext(u.profile_picture)[1]
+                _download_upload(
+                    backend_base_url, u.profile_picture,
+                    os.path.join(PROFILE_PICTURES_DIR, f"{safe_name}{ext}"),
+                )
     else:
         print(
             "BACKEND_BASE_URL not set - skipped downloading uploaded documents "
